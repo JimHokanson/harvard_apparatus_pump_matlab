@@ -5,7 +5,7 @@ Currently only pumps that use the 'Model 44' protocol are supported. In particul
 
 ##Usage
 
-The following assumes you've followed the setup directions [found here] (docs/other_file.md).
+The following assumes you've followed the setup directions [found here](docs/other_file.md).
 
 Additionally, you must add the repository folder to your path. Don't add the package folder ('+harvard') or any other sub-folders to your path.
 
@@ -16,9 +16,9 @@ p.setPumpMode('pump');
 p.setInfuseRate(1,'ml/min');	
 p.start();
 for i = 1:10
-	pause(1)
-	pumped_volume = p.volume_delivered_ml;
-	fprintf('Volume Pumped: %g (ml)\n',pumped_volume);
+    pause(1)
+    pumped_volume = p.volume_delivered_ml;
+    fprintf('Volume Pumped: %g (ml)\n',pumped_volume);
 end
 p.stop();
 ```
