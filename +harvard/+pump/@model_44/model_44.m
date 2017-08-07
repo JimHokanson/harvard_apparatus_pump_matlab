@@ -13,6 +13,10 @@ classdef model_44 < sl.obj.display_class
     %   Improvements
     %   -------------
     %   1) Build a method that scans the addresses (use VER).
+    %   2) Make a consistent error message for out of range so that
+    %   we can try/catch on it. Perhaps even return whether or not
+    %   the value was out of range as a variable and allow the user to not
+    %   throw an error
     
     %{
         Demo Code
@@ -29,6 +33,15 @@ classdef model_44 < sl.obj.display_class
         end
         p.stop();
 
+    %}
+    
+    %{
+        Questions
+        ---------
+        Q: How do we well if the pump is running?
+        A: I think we need to extract from the prompt
+        
+    
     %}
     
     %{    
@@ -70,7 +83,7 @@ classdef model_44 < sl.obj.display_class
         %BaudRate is selectable and could be something else
         %Other values are from Appendix F in the User Manual (PHD2000)
         serial_options = {...
-            'BaudRate',9600,...
+            'BaudRate',NaN,...
             'DataBits',8,...
             'Parity','none',...
             'StopBits',2,...
@@ -81,6 +94,18 @@ classdef model_44 < sl.obj.display_class
     properties
         address
         pump_firmware_version
+        pump_status_from_last_query
+        %   
+        %   - '1: infusing'
+        %   - '2: refilling'
+        %   - '3: stopped'
+        %   - '4: paused'
+        %   - '5: pumping interrupted'
+        %   - '6: dispense trigger wait'
+        %   - '7: unrecognized'
+        %
+        %   Note that grabbing the first char can identify
+        %   the type. >= 3 is stopped
     end
     
     properties (Dependent)
@@ -192,7 +217,7 @@ classdef model_44 < sl.obj.display_class
             %   1) Support numeric input for COM port_name
             
             in.address = 1;
-            in.baud_rate = 9600;
+            in.baud_rate = 19200;
             in = sl.in.processVarargin(in,varargin);
             
             obj.serial_options{2} = in.baud_rate;
@@ -372,8 +397,8 @@ classdef model_44 < sl.obj.display_class
             
             %OPTIONS
             %-----------------------
-            PAUSE_DURATION = 0.01;
-            MAX_WAIT_TIME = 2;
+            PAUSE_DURATION = 0.005;
+            MAX_INITIAL_WAIT_TIME = 2;
             MAX_READ_TIME = 5;
             
             %Error Codes
@@ -406,7 +431,13 @@ classdef model_44 < sl.obj.display_class
             while s2.BytesAvailable == 0
                 pause(PAUSE_DURATION);
                 i = i + 1;
-                if PAUSE_DURATION*i > MAX_WAIT_TIME
+                if PAUSE_DURATION*i > MAX_INITIAL_WAIT_TIME
+                    %This can occur if:
+                    %1) The baud rate is incorrect
+                    %2) Multiple commands are sent to the device
+                    %without appropriate blocking
+                    %3) The pump is currently in a menu :/
+                    %4) Pump gets turned off
                     error('Something wrong happened')
                 end
             end
@@ -434,6 +465,7 @@ classdef model_44 < sl.obj.display_class
                                     %  /  pause interval, pump stopped
                                     %  *  pumping interrupted (pump stopped)
                                     %  ^  dispense trigger wait (pump stopped)
+                                    last_char = response(end);
                                     response = response(1:end-n_chars_back-1);
                                     
                                     switch response
@@ -445,6 +477,27 @@ classdef model_44 < sl.obj.display_class
                                             error('Control data out of range for this pump')
                                     end
 
+                                    %YUCK :/
+                                    %--------------------------------------
+                                    switch last_char
+                                        case ':'
+                                            ps = '3: stopped'; %ps => Pump Status
+                                        case '>'
+                                            ps = '1: infusing';
+                                        case '<'
+                                            ps = '2: refilling';
+                                        case '/'
+                                            ps = '4: paused';
+                                        case '*'
+                                            ps = '5: pumping interrupted';
+                                        case '^'
+                                            ps = '6: dispense trigger wait';
+                                        otherwise
+                                            ps = '7: unrecognized';
+                                            
+                                    end
+                                    obj.pump_status_from_last_query = ps;
+                                    
                                     done = true;
                                 end
                             case CR
@@ -468,7 +521,7 @@ classdef model_44 < sl.obj.display_class
                         error('Unexpected first character')
                     end
                 else
-                    pause(0.02);
+                    pause(PAUSE_DURATION);
                 end
                 
                 if (~done && toc(t1) > MAX_READ_TIME)
@@ -497,6 +550,7 @@ serial_info = instrhwinfo('serial');
 if ~any(strcmp(serial_info.AvailableSerialPorts,port_name))
     if any(strcmp(serial_info.SerialPorts,port_name))
         %delete(instrfindall) will delete everything in Matlab
+        fprintf(2,'You may use "delete(instrfindall)" to clear all serial ports\n')
         error('Requested serial port: %s is in use',port_name);
     else
         fprintf(2,'-----------------------------\n');

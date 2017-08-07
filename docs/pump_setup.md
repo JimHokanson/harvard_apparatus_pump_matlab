@@ -18,7 +18,7 @@ Note there are two optional parameters in this button pushing sequence (address 
 4. Press: 'enter'
 5. Enter on Keypad: enter address, default value in code is 1
 6. Press: 'enter'
-7. Toggle: 'RS-232' to select BAUD RATE, default value in code is 9600
+7. Toggle: 'RS-232' to select BAUD RATE, default value in code is 19200
 8. Press: 'enter'
 
 ### Connecting to the pump from the computer
