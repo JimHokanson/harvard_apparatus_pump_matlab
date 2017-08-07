@@ -1,4 +1,4 @@
-function s = getCOMInfo()
+function varargout = getCOMInfo()
 %
 %   s = harvard.utils.getCOMInfo()
 %
@@ -6,6 +6,9 @@ function s = getCOMInfo()
 %   ------
 %   
 %
+%   Improvements
+%   ------------
+%   This doesn't handle stale info ... (USB unplugged)
 
 %Based on:
 %https://www.mathworks.com/matlabcentral/fileexchange/45675-identify-serial-com-devices-by-friendly-name-in-windows
@@ -54,6 +57,14 @@ temp = regexp(list,'(HKEY_LOCAL_MACHINE[^s]*)\s+FriendlyName\s+REG_SZ\s+([^\n]*)
 temp2 = vertcat(temp{:});
 
 s = cell2struct(vertcat(temp{:}),{'reg','friendly_name','name'},2);
+
+if nargout
+    varargout{1} = s;
+else
+    for i = 1:length(s)
+        disp(s(i))
+    end
+end
 
 %TODO: Extract root type
 %=> value following Enum in reg entry
