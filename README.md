@@ -3,7 +3,7 @@ Control of Harvard Apparatus pumps using Matlab.
 
 Currently only pumps that use the 'Model 44' protocol are supported. In particular this code has only been tested with a 'PHD 2000 Programmable' pump. I have not yet built-in support for complicated sequences to be run on the pump. I also have not yet built in support for controlling multiple pumps on the same serial connection.
 
-##Usage
+## Usage
 
 The following assumes you've followed the setup directions [found here](docs/other_file.md).
 
