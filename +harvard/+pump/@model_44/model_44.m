@@ -258,7 +258,12 @@ classdef model_44 < sl.obj.display_class
                 units = h__translateUnits(input_units);
             end
             
-            cmd = sprintf('RAT %0.4f %s',rate,units);
+            if rate >= 10
+                cmd = sprintf('RAT %0.3f %s',rate,units);
+            else
+                cmd = sprintf('RAT %0.4f %s',rate,units);
+            end
+            
             obj.runQuery(cmd);
         end
         function setRefillRate(obj,rate,input_units)
@@ -434,10 +439,13 @@ classdef model_44 < sl.obj.display_class
                 if PAUSE_DURATION*i > MAX_INITIAL_WAIT_TIME
                     %This can occur if:
                     %1) The baud rate is incorrect
+                    %
                     %2) Multiple commands are sent to the device
-                    %without appropriate blocking
+                    %   without appropriate blocking
+                    %
                     %3) The pump is currently in a menu :/
-                    %4) Pump gets turned off
+                    %
+                    %4) ****** Pump gets turned off
                     error('Something wrong happened')
                 end
             end
