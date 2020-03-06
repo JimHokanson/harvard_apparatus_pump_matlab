@@ -38,7 +38,7 @@ classdef model_44 < sl.obj.display_class
     %{
         Questions
         ---------
-        Q: How do we well if the pump is running?
+        Q: How do we know if the pump is running?
         A: I think we need to extract from the prompt
         
     
@@ -230,8 +230,18 @@ classdef model_44 < sl.obj.display_class
             
         end
         function delete(obj)
-            fclose(obj.s);
-            delete(obj.s);
+            %
+            %This error was occuring when constructor threw an error.
+            %
+            %   For now I'm just trying to silence it
+            %
+            %   ID: MATLAB:class:DestructorError
+% MSG: The following error was caught while executing 'harvard.pump.model_44' class destructor:
+% Invalid file identifier. Use fopen to generate a valid file identifier.
+            try
+                fclose(obj.s);
+                delete(obj.s);
+            end
         end
     end
     
@@ -542,6 +552,12 @@ classdef model_44 < sl.obj.display_class
 end
 
 function h__initSerial(obj,input,in)
+%
+%   Inputs
+%   ------
+%   input : numeric or char
+%       numeric - # of COM port
+%       char - COM ID => 'COM10'
 
 if ischar(input)
     port_name = input;
@@ -551,6 +567,9 @@ else
     %We could make this
     error('Unexpected input')
 end
+
+%TODO: wrap some of this in helper methods that are public
+%=> available serial ports
 
 % check to see if requests serial port exists
 serial_info = instrhwinfo('serial');
