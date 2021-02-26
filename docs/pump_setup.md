@@ -12,6 +12,7 @@ These are the instructions for the PHD 2000 Programmable pump.
 
 ### Verify RS-232 Connection Settings
 Note there are two optional parameters in this button pushing sequence (address and baud-rate). Changes to the defaults will require passing the non-default values into the class constructors.
+
 1. Press: 'enter'
 2. Press: 'Set' => 'RS-232'
 3. Toggle: 'RS-232' to select PUMP CHAIN
