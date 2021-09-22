@@ -499,8 +499,8 @@ classdef elite_11 < handle %sl.obj.display_class
                                     last_char = response(end);
                                     %-1 at end is to remove last status
                                     %character that is variable
-                                    response = response(1:end-n_chars_back-1);
-                                    
+% %                                  %response = response(1:end-n_chars_back-1);
+                                     response = response(5:end-2-n_chars_back);
                                     switch response
                                         case ERROR_1
                                             error('Syntax error for cmd: "%s"',full_cmd)
