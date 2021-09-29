@@ -317,7 +317,13 @@ classdef elite_11 < handle %sl.obj.display_class
         end
         function start(obj)
             %x Start the pump
-            obj.runQuery('RUN');
+            obj.runQuery('run')
+            status=obj.pump_status_from_last_query;
+            if status(1)=='1' || status(1)=='2'
+                %ok
+            else
+                warning('run did not work as expected, status:%s',status)
+            end
         end
         function stop(obj)
             %x Stop the pump
@@ -347,7 +353,8 @@ classdef elite_11 < handle %sl.obj.display_class
             %       - 'pump'
             %       - 'volume'
             %       - 'program'
-            
+            % do not available on this pump, this pump is infuse only 
+            warning('not yet tested')
             switch lower(mode)
                 case 'pump'
                     code = 'PMP';
@@ -373,14 +380,14 @@ classdef elite_11 < handle %sl.obj.display_class
             %       - 'infuse','infusion','inf'
             %       - 'refill','withdraw','ref'
             %       - 'reverse','toggle' => reverses the current code
-            
+            warning('not yet tested')
             switch lower(direction)
                 case {'infuse','infusion','inf'}
-                    code = 'INF';
+                    code = 'irun';
                 case {'refill','withdraw','ref'}
-                    code = 'REF';
+                   code = 'wrun';
                 case {'reverse','toggle'}
-                    code = 'REV';
+                    code = 'rrun';
                 otherwise
                     error('Unrecognized direction option: %s',direction);
             end
@@ -512,19 +519,22 @@ classdef elite_11 < handle %sl.obj.display_class
 
                                     %YUCK :/
                                     %--------------------------------------
+                                    %hw to do : update based on
+                                    %documentation
                                     switch last_char
                                         case ':'
-                                            ps = '3: stopped'; %ps => Pump Status
+                                            ps = '3: The pump is idle'; %ps => Pump Status
                                         case '>'
-                                            ps = '1: infusing';
+                                            ps = '1: The pump is infusing';
                                         case '<'
-                                            ps = '2: refilling';
-                                        case '/'
-                                            ps = '4: paused';
+                                            ps = '2: The pump is withdrawing';
+                                      %DO not have this case  
+                                      %  case '/'
+                                      %       ps = '4: paused';
                                         case '*'
-                                            ps = '5: pumping interrupted';
-                                        case '^'
-                                            ps = '6: dispense trigger wait';
+                                            ps = '5: The pump stalled';
+                                        case 'T*'
+                                            ps = '6: The target was reached';
                                         otherwise
                                             ps = '7: unrecognized';
                                             
@@ -618,13 +628,17 @@ end
 function units = h__translateUnits(input_units)
 switch input_units
     case 'ml/hr'
-        units = 'MH';
+        units = 'm/h';
     case {'ml/mn' 'ml/min'}
-        units = 'MM';
+        units = 'm/m';
     case 'ul/hr'
-        units = 'UH';
+        units = 'u/h';
     case {'ul/mn' 'ul/min'}
-        units = 'UM';
+        units = 'u/m';
+    case {'ul/s'}
+        units = 'u/s';
+    case {'n/s'}
+        units = 'n/s';
     otherwise
         error('Unrecognized units option')
 end
