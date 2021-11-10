@@ -17,6 +17,7 @@ classdef gui < handle
         pump
         is_pumping = false
         address
+        post_start_callback
     end
     
     methods (Static)
@@ -45,6 +46,7 @@ classdef gui < handle
             %   --------
             %   obj = harvard.pump.elite_11.gui('COM3','address',2)
             
+            in.post_start_callback = '';
             in.address = 1;
             in.baud_rate = 115200;
             in = harvard.sl.in.processVarargin(in,varargin);
@@ -52,6 +54,8 @@ classdef gui < handle
             if nargin == 0 || isempty(com)
                com = h__getDefaultCOM(); 
             end
+            
+            obj.post_start_callback = in.post_start_callback;
             
             %Loading the AppDesigner GUI
             obj.h = harvard.pump.elite_11.elite11_gui();
@@ -116,6 +120,9 @@ classdef gui < handle
             obj.h.stop_pump.Visible = 'On';
             obj.h.start_pump.Visible = 'Off';
             obj.pump.start();
+            if ~isempty(obj.post_start_callback)
+                obj.post_start_callback(obj);
+            end
         end
         function stopPump(obj)
             obj.is_pumping = false;
