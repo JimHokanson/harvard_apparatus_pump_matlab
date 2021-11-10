@@ -137,45 +137,33 @@ classdef elite_11 < handle %sl.obj.display_class
         %syringe_volume %- autofill
     end
     
-    %{
+    
     methods
         function value = get.syringe_diameter_mm(obj)
-            response = obj.runQuery('DIA');
-            value = str2double(response);
+            response = obj.runQuery('diameter');
+            value = str2double(response(1:end-3));
         end
-        function value = get.infuse_rate(obj)
-            response = obj.runQuery('RAT');
-            value = h__extractFlowRate(response);
-        end
-        function value = get.refill_rate(obj)
-            response = obj.runQuery('RFR');
-            value = h__extractFlowRate(response);
-        end
-        function value = get.volume_delivered_ml(obj)
-            response = obj.runQuery('DEL');
-            value = str2double(response);
-        end
-        function value = get.current_rate(obj)
-            response = obj.runQuery('PGR');
-            value = h__extractFlowRate(response);
-        end
-        function value = get.current_mode(obj)
-            temp = strtrim(obj.runQuery('MOD'));
-            
-            %TODO: Due to dependent displays, throwing an error does
-            %nothing when displaying
-            if strcmp(temp,'?')
-                %fprintf(2,'Value returned suggests pump is not in model_44 mode')
-                error('Pump is not in 44 mode')
-            else
-                value = temp;
-            end
-        end
-        function value = get.current_direction(obj)
-            value = strtrim(obj.runQuery('DIR'));
-        end
+%         function value = get.infuse_rate(obj)
+%             response = obj.runQuery('RAT');
+%             value = h__extractFlowRate(response);
+%         end
+%         function value = get.refill_rate(obj)
+%             response = obj.runQuery('RFR');
+%             value = h__extractFlowRate(response);
+%         end
+%         function value = get.volume_delivered_ml(obj)
+%             response = obj.runQuery('DEL');
+%             value = str2double(response);
+%         end
+%         function value = get.current_rate(obj)
+%             response = obj.runQuery('PGR');
+%             value = h__extractFlowRate(response);
+%         end
+%         function value = get.current_direction(obj)
+%             value = strtrim(obj.runQuery('DIR'));
+%         end
     end
-    %}
+
     
     properties
         %type = 'Harvard Apparatus PHD 4400';	% type of pump
@@ -341,33 +329,6 @@ classdef elite_11 < handle %sl.obj.display_class
         end
         function setTargetVolume(obj)
             error('Not yet implemented')
-        end
-        function setPumpMode(obj,mode)
-            %x Sets the pump mode (pump, volume, program)
-            %
-            %   setPumpMode(obj,mode)
-            %
-            %   Inputs
-            %   ------
-            %   mode : 
-            %       - 'pump'
-            %       - 'volume'
-            %       - 'program'
-            % do not available on this pump, this pump is infuse only 
-            warning('not yet tested')
-            switch lower(mode)
-                case 'pump'
-                    code = 'PMP';
-                case 'volume'
-                    code = 'VOL';
-                case 'program'
-                    code = 'PGM';
-                otherwise
-                    error('Unrecognized mode option: %s',mode);
-            end
-            
-            cmd = ['MOD ' code];
-            obj.runQuery(cmd);
         end
         function setPumpDirection(obj,direction)
             %x Set the pump direction (infuse, withdraw, reverse)
