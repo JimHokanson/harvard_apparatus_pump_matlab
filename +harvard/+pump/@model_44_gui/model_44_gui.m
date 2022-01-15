@@ -40,7 +40,7 @@ classdef model_44_gui < handle
             
             obj.p = p;
             
-            gui_path = fullfile(sl.stack.getMyBasePath,'model_44_gui.fig');
+            gui_path = fullfile(harvard.sl.stack.getMyBasePath,'model_44_gui.fig');
             obj.fig_handle = openfig(gui_path);
             obj.h = guihandles(obj.fig_handle);
             setappdata(obj.fig_handle,'obj',obj);

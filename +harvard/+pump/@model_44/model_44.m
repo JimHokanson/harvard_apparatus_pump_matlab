@@ -1,11 +1,11 @@
-classdef model_44 < sl.obj.display_class
+classdef model_44 < handle
     %
     %   Class:
     %   harvard.pump.model_44
     %
     %   Multiple Pumps
     %   -------------------------------------------------------------------
-    %   Multiple pumps can be connected to the same serial connection. To 
+    %   Multiple pumps can be connected to the same serial connection. To
     %   support this feature, a shared serial port instance would need to
     %   be passed to multiple instances of this class. This has not yet
     %   been fully flushed out and tested.
@@ -24,7 +24,7 @@ classdef model_44 < sl.obj.display_class
         p = harvard.pump.model_44('COM4');
         p.setPumpDirection('infuse');
         p.setPumpMode('pump');
-        p.setInfuseRate(1,'ml/min');	
+        p.setInfuseRate(1,'ml/min');
         p.start();
         for i = 1:10
             pause(1)
@@ -44,7 +44,7 @@ classdef model_44 < sl.obj.display_class
     
     %}
     
-    %{    
+    %{
     %Model 44 Commands
     %-------------------------------------------
     
@@ -95,7 +95,7 @@ classdef model_44 < sl.obj.display_class
         address
         pump_firmware_version
         pump_status_from_last_query
-        %   
+        %
         %   - '1: infusing'
         %   - '2: refilling'
         %   - '3: stopped'
@@ -162,7 +162,8 @@ classdef model_44 < sl.obj.display_class
             temp = strtrim(obj.runQuery('MOD'));
             
             %TODO: Due to dependent displays, throwing an error does
-            %nothing when displaying
+            %nothing when displaying. It only works when directly accessing
+            %the property. Displaying will just fail silently.
             if strcmp(temp,'?')
                 %fprintf(2,'Value returned suggests pump is not in model_44 mode')
                 error('Pump is not in 44 mode')
@@ -218,7 +219,7 @@ classdef model_44 < sl.obj.display_class
             
             in.address = 1;
             in.baud_rate = 19200;
-            in = sl.in.processVarargin(in,varargin);
+            in = harvard.sl.in.processVarargin(in,varargin);
             
             obj.serial_options{2} = in.baud_rate;
             
@@ -236,8 +237,8 @@ classdef model_44 < sl.obj.display_class
             %   For now I'm just trying to silence it
             %
             %   ID: MATLAB:class:DestructorError
-% MSG: The following error was caught while executing 'harvard.pump.model_44' class destructor:
-% Invalid file identifier. Use fopen to generate a valid file identifier.
+            % MSG: The following error was caught while executing 'harvard.pump.model_44' class destructor:
+            % Invalid file identifier. Use fopen to generate a valid file identifier.
             try
                 fclose(obj.s);
                 delete(obj.s);
@@ -329,7 +330,7 @@ classdef model_44 < sl.obj.display_class
             %
             %   Inputs
             %   ------
-            %   mode : 
+            %   mode :
             %       - 'pump'
             %       - 'volume'
             %       - 'program'
@@ -399,7 +400,7 @@ classdef model_44 < sl.obj.display_class
             s2 = obj.s;
             full_cmd = sprintf('%d %s \r',obj.address,cmd);
             fprintf(s2,full_cmd);
-
+            
             %Model 44
             %<lf><text><cr> - 1 or more lines
             %<lf> 1 or 2 digit address, prompt char => e.g. 1:
@@ -494,7 +495,7 @@ classdef model_44 < sl.obj.display_class
                                         case ERROR_3
                                             error('Control data out of range for this pump')
                                     end
-
+                                    
                                     %YUCK :/
                                     %--------------------------------------
                                     switch last_char
@@ -553,18 +554,20 @@ end
 
 function h__initSerial(obj,input,in)
 %
+%   h__initSerial(obj,input,in)
+%
+%
 %   Inputs
 %   ------
 %   input : numeric or char
-%       numeric - # of COM port
-%       char - COM ID => 'COM10'
+%       - numeric : # of COM port
+%       - char : COM ID => 'COM10'
 
 if ischar(input)
     port_name = input;
 elseif isnumeric(input)
     port_name = sprintf('COM%d',input);
 else
-    %We could make this
     error('Unexpected input')
 end
 

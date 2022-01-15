@@ -42,7 +42,7 @@ end
 %     PortName    REG_SZ    COM3
 
 
-lines = sl.str.getLines(list);
+lines = harvard.sl.str.getLines(list);
 
 % temp = regexp(list,'(HKEY_LOCAL_MACHINE[^s]*)\s+FriendlyName\s+REG_SZ\s+([^\n]*)','tokens'); 
 % temp2 = regexp(list,'REG_SZ\s+(COM\d+)','tokens');
