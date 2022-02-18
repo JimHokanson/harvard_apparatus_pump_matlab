@@ -5,7 +5,7 @@ classdef elite_11 < handle %sl.obj.display_class
     %
     %   Multiple Pumps
     %   -------------------------------------------------------------------
-    %   Multiple pumps can be connected to the same serial connection. To 
+    %   Multiple pumps can be connected to the same serial connection. To
     %   support this feature, a shared serial port instance would need to
     %   be passed to multiple instances of this class. This has not yet
     %   been fully flushed out and tested.
@@ -17,6 +17,10 @@ classdef elite_11 < handle %sl.obj.display_class
     %   we can try/catch on it. Perhaps even return whether or not
     %   the value was out of range as a variable and allow the user to not
     %   throw an error
+    %
+    %   See Also
+    %   --------
+    %   harvard.pump.elite_11.gui
     
     %{
         Demo Code
@@ -24,7 +28,7 @@ classdef elite_11 < handle %sl.obj.display_class
         p = harvard.pump.model_44('COM4');
         p.setPumpDirection('infuse');
         p.setPumpMode('pump');
-        p.setInfuseRate(1,'ml/min');	
+        p.setInfuseRate(1,'ml/min');
         p.start();
         for i = 1:10
             pause(1)
@@ -44,7 +48,7 @@ classdef elite_11 < handle %sl.obj.display_class
     
     %}
     
-    %{    
+    %{
     %Model 44 Commands
     %-------------------------------------------
     
@@ -95,7 +99,7 @@ classdef elite_11 < handle %sl.obj.display_class
         address
         pump_firmware_version
         pump_status_from_last_query
-        %   
+        %
         %   - '1: infusing'
         %   - '2: refilling'
         %   - '3: stopped'
@@ -117,6 +121,10 @@ classdef elite_11 < handle %sl.obj.display_class
         %1) 0
         %2) 'infuse_rate'
         %3) something else if a program is running
+        %
+        %   - For 11 ul/sec while not infusing we get a rate of 660 ul/min
+        %     It is unclear why the program changed the units we got back.
+        %
         
         %TODO: If we are using model_22 this will return
         %?, instead of a valid value
@@ -143,27 +151,38 @@ classdef elite_11 < handle %sl.obj.display_class
             response = obj.runQuery('diameter');
             value = str2double(response(1:end-3));
         end
-%         function value = get.infuse_rate(obj)
-%             response = obj.runQuery('RAT');
-%             value = h__extractFlowRate(response);
-%         end
-%         function value = get.refill_rate(obj)
-%             response = obj.runQuery('RFR');
-%             value = h__extractFlowRate(response);
-%         end
-%         function value = get.volume_delivered_ml(obj)
-%             response = obj.runQuery('DEL');
-%             value = str2double(response);
-%         end
-%         function value = get.current_rate(obj)
-%             response = obj.runQuery('PGR');
-%             value = h__extractFlowRate(response);
-%         end
-%         function value = get.current_direction(obj)
-%             value = strtrim(obj.runQuery('DIR'));
-%         end
+        %         function value = get.infuse_rate(obj)
+        %             response = obj.runQuery('RAT');
+        %             value = h__extractFlowRate(response);
+        %         end
+        %         function value = get.refill_rate(obj)
+        %             response = obj.runQuery('RFR');
+        %             value = h__extractFlowRate(response);
+        %         end
+        function value = get.volume_delivered_ml(obj)
+            value = obj.runQuery('ivolume');
+            %example response: '9.61893 ml'
+%             temp = response(1:end-3);
+            %temp = regexp(response,'\d+\.?\d+','match','once');
+%             value = str2double(temp);
+        end
+        function value = get.current_rate(obj)
+            response = obj.runQuery('crate');
+            %TODO: We could extract whether we are set to infuse
+            %or withdraw, although our example pump only
+            %supports infusing
+            %
+            %See helper function for our example response
+            value = h__extractFlowRate(response);
+            %value - {1x2}
+            %   {1} - numeric rate
+            %   {2} - string units
+        end
+        %         function value = get.current_direction(obj)
+        %             value = strtrim(obj.runQuery('DIR'));
+        %         end
     end
-
+    
     
     properties
         %type = 'Harvard Apparatus PHD 4400';	% type of pump
@@ -215,7 +234,7 @@ classdef elite_11 < handle %sl.obj.display_class
             %   1) Support numeric input for COM port_name
             
             in.address = 1;
-            in.baud_rate = 19200;
+            in.baud_rate = 115200;
             in = sl.in.processVarargin(in,varargin);
             
             if isempty(input)
@@ -238,8 +257,8 @@ classdef elite_11 < handle %sl.obj.display_class
             %   For now I'm just trying to silence it
             %
             %   ID: MATLAB:class:DestructorError
-% MSG: The following error was caught while executing 'harvard.pump.model_44' class destructor:
-% Invalid file identifier. Use fopen to generate a valid file identifier.
+            % MSG: The following error was caught while executing 'harvard.pump.model_44' class destructor:
+            % Invalid file identifier. Use fopen to generate a valid file identifier.
             try
                 fclose(obj.s);
                 delete(obj.s);
@@ -305,21 +324,26 @@ classdef elite_11 < handle %sl.obj.display_class
         end
         function start(obj)
             %x Start the pump
-            obj.runQuery('run')
-            status=obj.pump_status_from_last_query;
-            if status(1)=='1' || status(1)=='2'
-                %ok
-            else
-                warning('run did not work as expected, status:%s',status)
-            end
+            obj.runQuery('run');
+            % starting the pump didn't create the correct status
+            % defaults to idle
+            % getting correct status will require another command
+            %             status=obj.pump_status_from_last_query;
+            %             if status(1)=='1' || status(1)=='2'
+            %                 %ok
+            %             else
+            %                 warning('run did not work as expected, status:%s',status);
+            %             end
         end
         function stop(obj)
             %x Stop the pump
             obj.runQuery('STP');
         end
+        
+        
         function clearDeliveredVolume(obj)
             %x Clears the accumalator that tracks the delivered volume
-            obj.runQuery('CLD');
+            obj.runQuery('civolume');
         end
         function setSyringeDiameter(obj,diameter)
             %
@@ -346,7 +370,7 @@ classdef elite_11 < handle %sl.obj.display_class
                 case {'infuse','infusion','inf'}
                     code = 'irun';
                 case {'refill','withdraw','ref'}
-                   code = 'wrun';
+                    code = 'wrun';
                 case {'reverse','toggle'}
                     code = 'rrun';
                 otherwise
@@ -382,7 +406,7 @@ classdef elite_11 < handle %sl.obj.display_class
             %full_cmd = sprintf('%d %s \r',obj.address,cmd);
             full_cmd = sprintf('%d%s\r',obj.address,cmd);
             fprintf(s2,full_cmd);
-
+            
             %Model 44
             %<lf><text><cr> - 1 or more lines
             %<lf> 1 or 2 digit address, prompt char => e.g. 1:
@@ -450,25 +474,24 @@ classdef elite_11 < handle %sl.obj.display_class
             done = false;
             while ~done
                 if obj.s.BytesAvailable
-                response = [response fscanf(obj.s,'%c',obj.s.BytesAvailable)]; %#ok<AGROW>
+                    response = [response fscanf(obj.s,'%c',obj.s.BytesAvailable)]; %#ok<AGROW>
                     %Expecting Model 44 - model 22 starts with CR ...
                     if response(1) == LF
                         switch response(end)
-                            case {':' '>' '<' '/' '*' '^'}
+                            case {':' '>' '<'  '*' 'T*'}
                                 if length(response) >= n_chars_back + 1 && ...
                                         strcmp(response(end-n_chars_back:end-1),END_OF_MSG_START)
                                     
-                                    %  :  pump stopped
-                                    %  >  pump infusing
-                                    %  <  pump refilling
-                                    %  /  pause interval, pump stopped
-                                    %  *  pumping interrupted (pump stopped)
-                                    %  ^  dispense trigger wait (pump stopped)
+                                    %  :  pump is idle
+                                    %  >  pump is infusing
+                                    %  <  pump is withdraeing
+                                    %  *  pump stalled
+                                    %  T* target was reached
                                     last_char = response(end);
                                     %-1 at end is to remove last status
                                     %character that is variable
-% %                                  %response = response(1:end-n_chars_back-1);
-                                     response = response(5:end-2-n_chars_back);
+                                    % %                                  %response = response(1:end-n_chars_back-1);
+                                    response = response(5:end-2-n_chars_back);
                                     switch response
                                         case ERROR_1
                                             error('Syntax error for cmd: "%s"',full_cmd)
@@ -477,7 +500,7 @@ classdef elite_11 < handle %sl.obj.display_class
                                         case ERROR_3
                                             error('Control data out of range for this pump')
                                     end
-
+                                    
                                     %YUCK :/
                                     %--------------------------------------
                                     %hw to do : update based on
@@ -489,9 +512,9 @@ classdef elite_11 < handle %sl.obj.display_class
                                             ps = '1: The pump is infusing';
                                         case '<'
                                             ps = '2: The pump is withdrawing';
-                                      %DO not have this case  
-                                      %  case '/'
-                                      %       ps = '4: paused';
+                                            %DO not have this case
+                                            %  case '/'
+                                            %       ps = '4: paused';
                                         case '*'
                                             ps = '5: The pump stalled';
                                         case 'T*'
@@ -501,7 +524,7 @@ classdef elite_11 < handle %sl.obj.display_class
                                             
                                     end
                                     obj.pump_status_from_last_query = ps;
-                                    
+                         
                                     done = true;
                                 end
                             case CR
@@ -522,7 +545,7 @@ classdef elite_11 < handle %sl.obj.display_class
                                 %Keep going
                         end
                     else
-                        error('Unexpected first character')
+                       error('Unexpected first character');
                     end
                 else
                     pause(PAUSE_DURATION);
@@ -606,7 +629,7 @@ end
 end
 
 function value = h__extractFlowRate(response)
-%%Example Response:  0.1644 ml/hr
-value = regexp(response,'(\d+\.\d*) ([^\s]+)','tokens','once');
+%%Example Response:    'Infusing at 660 ul/min'
+value = regexp(response,'[^\d]*(\d+\.?\d*) ([^\s]+)','tokens','once');
 value{1} = str2double(value{1});
 end
