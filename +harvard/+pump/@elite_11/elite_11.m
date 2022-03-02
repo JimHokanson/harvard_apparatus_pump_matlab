@@ -25,7 +25,9 @@ classdef elite_11 < handle %sl.obj.display_class
     %{
         Demo Code
         ----------
-        p = harvard.pump.model_44('COM4');
+        p = harvard.pump.elite_11('COM3');
+    
+        %This may be out of date
         p.setPumpDirection('infuse');
         p.setPumpMode('pump');
         p.setInfuseRate(1,'ml/min');
@@ -116,8 +118,14 @@ classdef elite_11 < handle %sl.obj.display_class
         syringe_diameter_mm
         infuse_rate % {value,units}
         refill_rate %
+        
+        %cell of length 2, {numeric value, units_string}
         volume_delivered_ml
-        current_rate %This is either:
+        
+        %Cell of length 2, {numeric_value, units_string}
+        current_rate
+        
+        %TODO: I think this is out of date
         %1) 0
         %2) 'infuse_rate'
         %3) something else if a program is running
@@ -160,7 +168,11 @@ classdef elite_11 < handle %sl.obj.display_class
         %             value = h__extractFlowRate(response);
         %         end
         function value = get.volume_delivered_ml(obj)
-            value = obj.runQuery('ivolume');
+            response = obj.runQuery('ivolume');
+            
+            value = regexp(response,'[^\d]*(\d+\.?\d*) ([^\s]+)','tokens','once');
+            value{1} = str2double(value{1});
+            
             %example response: '9.61893 ml'
 %             temp = response(1:end-3);
             %temp = regexp(response,'\d+\.?\d+','match','once');

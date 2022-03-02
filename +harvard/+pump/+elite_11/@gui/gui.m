@@ -15,42 +15,49 @@ classdef gui < handle
     %{
         harvard.pump.elite_11.gui.run('COM1','clear_volume_on_start',true)
     %}
+    
+    %Handles List
+    %------------
+    %                   UIFigure: [1×1 Figure]
+    %               clear_volume: [1×1 Button]
+    %                    display: [1×1 TextArea]
+    %                 stop_flush: [1×1 Button]
+    %                start_flush: [1×1 Button]
+    %                 flush_rate: [1×1 DropDown]
+    %     FlushRateDropDownLabel: [1×1 Label]
+    %                  stop_pump: [1×1 Button]
+    %                 start_pump: [1×1 Button]
+    %                      units: [1×1 DropDown]
+    %         UnitsDropDownLabel: [1×1 Label]
+    %                  fill_rate: [1×1 EditField]
+    %     FillRateEditFieldLabel: [1×1 Label]
+    
+    
     events
-        pre_start_pump1
-        post_start_pump1
-        pre_stop_pump1
-        post_stop_pump1
-        pre_start_flush1
-        post_start_flush1
-        pre_stop_flush1
-        post_stop_flush1
-        
-        pre_start_pump2
-        post_start_pump2
-        pre_stop_pump2
-        post_stop_pump2
-        pre_start_flush2
-        post_start_flush2
-        pre_stop_flush2
-        post_stop_flush2
-%         
-%         
-%         start_flushing
-%         stop_flushing
-%         pump_started
-%         pump_stopped
+        pre_start_pump
+        post_start_pump
+        pre_stop_pump
+        post_stop_pump
+        pre_start_flush
+        post_start_flush
+        pre_stop_flush
+        post_stop_flush
     end
     
     properties
+        %This defaults to nothing. It is specified by user. Does not
+        %impact the pump operation, but we do save properties based
+        %on this name (if specified)
+        name
         h %h => handles
-        pump
+        pump  %harvard.pump.elite_11
         is_pumping = false
         is_flushing = false
         clear_volume_on_start
         address
         post_start_callback
         timer
-        value
+        display_strings
     end
     
     
@@ -84,6 +91,7 @@ classdef gui < handle
             %TODO: Switch from callbacks to listeners
             %https://www.mathworks.com/help/matlab/ref/handle.notify.html
             
+            in.name = -1;
             in.address = 1;
             in.baud_rate = 115200;
             in.clear_volume_on_start = false;
@@ -97,7 +105,15 @@ classdef gui < handle
             
             %Loading the AppDesigner GUI
             obj.h = harvard.pump.elite_11.elite11_gui();
-            obj.h.UIFigure.CloseRequestFcn=@(~,~)h__closeFigure(obj);
+            obj.h.UIFigure.CloseRequestFcn = @(~,~)h__closeFigure(obj);
+            
+            if ischar(in.name)
+                obj.h.UIFigure.Name = in.name;
+                obj.name = in.name;
+            else
+                obj.name = '';
+            end
+            
             %Units -------------
             obj.h.units.Items = {'ml/hr';'ml/min';'ul/hr';'ul/min'};
             obj.h.flush_rate.Items = {'5ml/min';'10ml/min';'15ml/min';'20ml/min'};
@@ -157,7 +173,7 @@ classdef gui < handle
                 h2 = load(file_path);
                 s = h2.s;
                 obj.h.fill_rate.Value = s.fill_rate;
-                %TODO: put units here
+                obj.h.units.Value = s.fill_units;
             else
                 obj.h.fill_rate.Value = '5';
             end
@@ -166,12 +182,17 @@ classdef gui < handle
             file_path = obj.getSavePath();
             s = struct;
             s.fill_rate = obj.h.fill_rate.Value;
+            s.fill_units = obj.h.units.Value;
             save(file_path,'s');
         end
         function file_path = getSavePath(obj)
-            package_root = sl.stack.getPackageRoot();
-            save_root = sl.dir.createFolderIfNoExist(package_root,'temp_data','elite11');
-            file_name = sprintf('gui_data_%02d.mat',obj.address);
+            package_root = harvard.sl.stack.getPackageRoot();
+            save_root = harvard.sl.dir.createFolderIfNoExist(package_root,'temp_data','elite11');
+            if ~isempty(obj.name)
+                file_name = sprintf('gui_data_%s.mat',obj.name);
+            else
+                file_name = sprintf('gui_data_%02d.mat',obj.address);
+            end
             file_path = fullfile(save_root,file_name);
         end
     end
@@ -193,11 +214,9 @@ classdef gui < handle
             %                %Clear the infused volume counter
             %             end
             
-             notify(obj,'pre_start_pump1');
-            notify(obj,'pre_start_pump2');
+            notify(obj,'pre_start_pump');
             obj.pump.start();
-             notify(obj,'post_start_pump1');
-             notify(obj,'post_start_pump2');
+            notify(obj,'post_start_pump');
         end
         
         function stopPump(obj)
@@ -205,11 +224,9 @@ classdef gui < handle
             obj.h.stop_pump.Visible = 'Off';
             obj.h.start_pump.Visible = 'On';
             
-            notify(obj,'pre_stop_pump1');
-             notify(obj,'pre_stop_pump2');
-            obj.pump.stop();            
-             notify(obj,'post_stop_pump1');
-             notify(obj,'post_stop_pump2');
+            notify(obj,'pre_stop_pump');
+            obj.pump.stop();
+            notify(obj,'post_stop_pump');
         end
         
         %         if obj.is_pumping == true;
@@ -218,17 +235,9 @@ classdef gui < handle
         %             notify(obj,'stop_pump');
         %         end
         
-        function  setFlushRate(obj)
-            switch obj.h.flush_rate.Value
-                case 5
-                    obj.pump.setInfuseRate(5,'ml/min');
-                case 10
-                    obj.pump.setInfuseRate(10,'ml/min');
-                case 15
-                    obj.pump.setInfuseRate(15,'ml/min');
-                case 20
-                    obj.pump.setInfuseRate(20,'ml/min');
-            end
+        function setFlushRate(obj)
+            flush_rate = obj.h.flush_rate.Value;
+            obj.pump.setInfuseRate(flush_rate,'ml/min');
         end
         function startflush(obj)
             obj.is_flushing = true;
@@ -236,37 +245,42 @@ classdef gui < handle
             obj.h.stop_flush.Visible = 'On';
             obj.h.start_flush.Visible = 'Off';
             %             disp('starting pump')
-            notify(obj,'pre_start_flush1');
-            notify(obj,'pre_start_flush2');
+            notify(obj,'pre_start_flush');
             obj.pump.start();
-              notify(obj,'post_start_flush1');
-              notify(obj,'post_start_flush2');
+            notify(obj,'post_start_flush');
         end
         function stopflush(obj)
             obj.is_flushing = false;
             obj.h.stop_flush.Visible = 'Off';
             obj.h.start_flush.Visible = 'On';
             %             disp('stopping pump')
-            notify(obj,'pre_stop_flush1');
-             notify(obj,'pre_stop_flush2');
+            notify(obj,'pre_stop_flush');
             obj.pump.stop();
-             notify(obj,'post_stop_flush1');
-             notify(obj,'post_stop_flush2');
+            notify(obj,'post_stop_flush');
             %             disp('pump stopped')
         end
-%         function startTimer(obj)
-%             start(obj.timer);
-%         end
-%         function stopTimer(obj)
-%             stop(obj.timer);
-%          end
+        %         function startTimer(obj)
+        %             start(obj.timer);
+        %         end
+        %         function stopTimer(obj)
+        %             stop(obj.timer);
+        %          end
         
         function updateDisplay(obj)
-            try 
-            obj.value=cell(1,2);
-            obj.value{1}=strcat('Current Rate:',num2str(obj.pump.current_rate{1}),obj.pump.current_rate{2});
-            obj.value{2}=strcat('Infused Volume:',obj.pump.volume_delivered_ml);
-            obj.h.display.Value=sprintf('%s\n%s',obj.value{1},obj.value{2});
+            try
+                obj.display_strings = cell(1,2);
+                
+                current_rate = obj.pump.current_rate;
+                volume = obj.pump.volume_delivered_ml;
+                %current_rate: {numeric_value,units_string}
+                
+                obj.display_strings{1} = sprintf('Current Rate: %g (%s)',current_rate{1},current_rate{2});
+                obj.display_strings{2} = sprintf('Infused Volume: %g (%s)',volume{1},volume{2});
+                
+% %                 %['Current Rate:',num2str(obj.pump.current_rate{1}),obj.pump.current_rate{2}]
+% %                 obj.display_strings{1} = strcat('Current Rate:',num2str(obj.pump.current_rate{1}),obj.pump.current_rate{2});
+% %                 obj.display_strings{2} = strcat('Infused Volume:',obj.pump.volume_delivered_ml);
+                obj.h.display.Value = sprintf('%s\n%s',obj.display_strings{1},obj.display_strings{2});
             end
         end
         function clearVolume(obj)
