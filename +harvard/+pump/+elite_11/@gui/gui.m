@@ -150,10 +150,21 @@ classdef gui < handle
             obj.timer.TimerFcn=@(~,~)obj.updateDisplay();
             start(obj.timer);
             
-            obj.pump = harvard.pump.elite_11(com,...
-                'address',in.address,...
-                'baud_rate',in.baud_rate);
+            try
+                obj.pump = harvard.pump.elite_11(com,...
+                    'address',in.address,...
+                    'baud_rate',in.baud_rate);
+            catch ME
+                close(obj.h.UIFigure);
+                if strcmp(ME.identifier,'ELITE11:no_response')
+                    fprintf(2,'No response obtained when initializing pump, check COM port and other settings\n')
+                else
+                    rethrow(ME)
+                end
+            end
+            
             obj.address = in.address; %for file naming
+            
             
             obj.loadFromDisk();
             %loadFromDisk(obj) %works, but don't do this
@@ -167,6 +178,13 @@ classdef gui < handle
                 delete(obj.timer);
             end
         end
+        function saveToDisk(obj)
+            file_path = obj.getSavePath();
+            s = struct;
+            s.fill_rate = obj.h.fill_rate.Value;
+            s.fill_units = obj.h.units.Value;
+            save(file_path,'s');
+        end
         function loadFromDisk(obj)
             file_path = obj.getSavePath();
             if exist(file_path,'file')
@@ -177,13 +195,6 @@ classdef gui < handle
             else
                 obj.h.fill_rate.Value = '5';
             end
-        end
-        function saveToDisk(obj)
-            file_path = obj.getSavePath();
-            s = struct;
-            s.fill_rate = obj.h.fill_rate.Value;
-            s.fill_units = obj.h.units.Value;
-            save(file_path,'s');
         end
         function file_path = getSavePath(obj)
             package_root = harvard.sl.stack.getPackageRoot();
@@ -277,9 +288,9 @@ classdef gui < handle
                 obj.display_strings{1} = sprintf('Current Rate: %g (%s)',current_rate{1},current_rate{2});
                 obj.display_strings{2} = sprintf('Infused Volume: %g (%s)',volume{1},volume{2});
                 
-% %                 %['Current Rate:',num2str(obj.pump.current_rate{1}),obj.pump.current_rate{2}]
-% %                 obj.display_strings{1} = strcat('Current Rate:',num2str(obj.pump.current_rate{1}),obj.pump.current_rate{2});
-% %                 obj.display_strings{2} = strcat('Infused Volume:',obj.pump.volume_delivered_ml);
+                % %                 %['Current Rate:',num2str(obj.pump.current_rate{1}),obj.pump.current_rate{2}]
+                % %                 obj.display_strings{1} = strcat('Current Rate:',num2str(obj.pump.current_rate{1}),obj.pump.current_rate{2});
+                % %                 obj.display_strings{2} = strcat('Infused Volume:',obj.pump.volume_delivered_ml);
                 obj.h.display.Value = sprintf('%s\n%s',obj.display_strings{1},obj.display_strings{2});
             end
         end

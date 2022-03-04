@@ -475,7 +475,7 @@ classdef elite_11 < handle %sl.obj.display_class
                     %3) The pump is currently in a menu :/
                     %
                     %4) ****** Pump gets turned off
-                    error('Something wrong happened, no response (no bytes) received from pump')
+                    error('ELITE11:no_response','Something wrong happened, no response (no bytes) received from pump')
                 end
             end
             
