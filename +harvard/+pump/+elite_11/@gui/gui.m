@@ -13,7 +13,7 @@ classdef gui < handle
     
     
     %{
-        harvard.pump.elite_11.gui.run('COM1','clear_volume_on_start',true)
+        harvard.pump.elite_11.gui.run('COM3','clear_volume_on_start',true)
     %}
     
     %Handles List
@@ -58,6 +58,8 @@ classdef gui < handle
         post_start_callback
         timer
         display_strings
+        n_updates = 0;
+        options harvard.pump.elite_11.gui.options
     end
     
     
@@ -115,7 +117,7 @@ classdef gui < handle
             end
             
             %Units -------------
-            obj.h.units.Items = {'ml/hr';'ml/min';'ul/hr';'ul/min'};
+            obj.h.units.Items = {'ml/hr';'ml/min';'ul/min'};
             obj.h.flush_rate.Items = {'5ml/min';'10ml/min';'15ml/min';'20ml/min'};
             obj.h.flush_rate.ItemsData=[5 10 15 20];
             %callback? - none needed, set fill rate when pumping
@@ -126,7 +128,7 @@ classdef gui < handle
             %TODO: Eventually we might want some rate checking on what
             %is valid - VERY LOW PRIORITY
             obj.h.fill_rate.ValueChangedFcn = @(~,~)obj.saveToDisk();
-            
+%             obj.h.
             %Start/Stop Pump Button --------------------
             obj.h.stop_pump.Position = obj.h.start_pump.Position;
             obj.h.stop_pump.Visible = 'Off';
@@ -142,6 +144,9 @@ classdef gui < handle
             %Clear Infused Volume Button --------------------
             obj.h.clear_volume.ButtonPushedFcn=@(~,~)obj.clearVolume();
             %             +(~,~)obj.updateDisplay();
+            
+            %Options Button
+            obj.h.options.ButtonPushedFcn=@(~,~)obj.giveOptions();
             
             %Timer --------------------
             obj.timer =timer();
@@ -166,6 +171,8 @@ classdef gui < handle
             obj.address = in.address; %for file naming
             
             
+            obj.options = harvard.pump.elite_11.gui.options(obj);
+            
             obj.loadFromDisk();
             %loadFromDisk(obj) %works, but don't do this
             
@@ -183,6 +190,7 @@ classdef gui < handle
             s = struct;
             s.fill_rate = obj.h.fill_rate.Value;
             s.fill_units = obj.h.units.Value;
+            s.options = obj.options.getStruct();
             save(file_path,'s');
         end
         function loadFromDisk(obj)
@@ -192,6 +200,9 @@ classdef gui < handle
                 s = h2.s;
                 obj.h.fill_rate.Value = s.fill_rate;
                 obj.h.units.Value = s.fill_units;
+                if isfield(s,'options')
+                   obj.options.loadFromStruct(s.options) 
+                end
             else
                 obj.h.fill_rate.Value = '5';
             end
@@ -210,20 +221,26 @@ classdef gui < handle
     
     %Pump Interface Commands
     methods
+        
+        function giveOptions(obj)
+        obj.options.launchEditorGUI;
+        end
+        
         function setFillRate(obj)
             fill_rate = str2double(obj.h.fill_rate.Value);
             units = obj.h.units.Value;
             obj.pump.setInfuseRate(fill_rate,units)
         end
+        
         function startPump(obj)
+            if obj.options.clear_volume_on_start
+               %TODO: Clear volume on start 
+               obj.clearVolume();
+            end
             obj.is_pumping = true;
             obj.setFillRate();
             obj.h.stop_pump.Visible = 'On';
             obj.h.start_pump.Visible = 'Off';
-            %TODO: implement clear_volume_on_start
-            %             if obj.clear_volume_on_start
-            %                %Clear the infused volume counter
-            %             end
             
             notify(obj,'pre_start_pump');
             obj.pump.start();
@@ -240,16 +257,12 @@ classdef gui < handle
             notify(obj,'post_stop_pump');
         end
         
-        %         if obj.is_pumping == true;
-        %             notify(obj,'start_pump');
-        %         else
-        %             notify(obj,'stop_pump');
-        %         end
-        
         function setFlushRate(obj)
+            %TODO: Could pull from options
             flush_rate = obj.h.flush_rate.Value;
             obj.pump.setInfuseRate(flush_rate,'ml/min');
         end
+        
         function startflush(obj)
             obj.is_flushing = true;
             obj.setFlushRate();
@@ -260,22 +273,15 @@ classdef gui < handle
             obj.pump.start();
             notify(obj,'post_start_flush');
         end
+        
         function stopflush(obj)
             obj.is_flushing = false;
             obj.h.stop_flush.Visible = 'Off';
             obj.h.start_flush.Visible = 'On';
-            %             disp('stopping pump')
             notify(obj,'pre_stop_flush');
             obj.pump.stop();
             notify(obj,'post_stop_flush');
-            %             disp('pump stopped')
         end
-        %         function startTimer(obj)
-        %             start(obj.timer);
-        %         end
-        %         function stopTimer(obj)
-        %             stop(obj.timer);
-        %          end
         
         function updateDisplay(obj)
             try
@@ -285,18 +291,61 @@ classdef gui < handle
                 volume = obj.pump.volume_delivered_ml;
                 %current_rate: {numeric_value,units_string}
                 
-                obj.display_strings{1} = sprintf('Current Rate: %g (%s)',current_rate{1},current_rate{2});
+                target_units = obj.h.units.Value;
+               new_value = translate_units(current_rate{1},current_rate{2},target_units);
+                
+                %TODO: Remove once function is working
+%                 new_value = current_rate{1};
+%                 target_units = current_rate{2};
+                
+                obj.display_strings{1} = sprintf('Current Rate: %g (%s)', new_value,target_units);
                 obj.display_strings{2} = sprintf('Infused Volume: %g (%s)',volume{1},volume{2});
                 
                 % %                 %['Current Rate:',num2str(obj.pump.current_rate{1}),obj.pump.current_rate{2}]
                 % %                 obj.display_strings{1} = strcat('Current Rate:',num2str(obj.pump.current_rate{1}),obj.pump.current_rate{2});
                 % %                 obj.display_strings{2} = strcat('Infused Volume:',obj.pump.volume_delivered_ml);
-                obj.h.display.Value = sprintf('%s\n%s',obj.display_strings{1},obj.display_strings{2});
+                obj.n_updates = obj.n_updates + 1;
+                if mod(obj.n_updates,2)
+                    last_char = '';
+                else
+                    last_char = '*';
+                end 
+                obj.h.display.Value = sprintf('%s\n%s %s',obj.display_strings{1},obj.display_strings{2},last_char);
+
             end
         end
+        
         function clearVolume(obj)
             obj.pump.clearDeliveredVolume();
         end
+    end
+end
+
+function out = translate_units(value,in_units,target_units)
+
+    %
+    %   value = 50
+    %   in_units = ul/mn
+    %   target_units = ml/hr
+    %   out = 3
+    %
+    %   50 ul   60 mn  1 ml
+    %      mn   1 hr   1000 ul
+    %
+    %   'ul/mn#ml/hr'
+    
+    merged_units = [in_units '#' target_units];
+    switch merged_units
+        case 'ul/min#ml/hr'
+            out = value*60/1000;
+        case 'ml/min#ml/min'
+            out = value;  
+        case 'ul/min#ul/min'
+             out = value;
+        case 'ml/min#ml/hr'
+            out = value*60;
+        otherwise
+            error('Unhandled case')
     end
 end
 

@@ -98,6 +98,9 @@ classdef elite_11 < handle %sl.obj.display_class
     end
     
     properties
+        sending_cmd = false
+        wtf 
+        
         address
         pump_firmware_version
         pump_status_from_last_query
@@ -409,7 +412,29 @@ classdef elite_11 < handle %sl.obj.display_class
             flushinput(obj.s)
         end
         function response = runQuery(obj,cmd)
+            if obj.sending_cmd
+               i = 0;
+               while (obj.sending_cmd)
+                   pause(0.1);
+                   i = i + 1;
+                   if i > 40
+                       error('Took too long waiting for turn')
+                   end
+               end
+            end
+            obj.sending_cmd = true;
+            try
+                response = obj.runQuery2(cmd);
+                obj.sending_cmd = false;
+            catch ME
+                obj.sending_cmd = false;
+                rethrow(ME)
+            end
+        end
+        function response = runQuery2(obj,cmd)
             %
+            
+            
             
             CR = char(13);
             LF = char(10);
@@ -475,7 +500,8 @@ classdef elite_11 < handle %sl.obj.display_class
                     %3) The pump is currently in a menu :/
                     %
                     %4) ****** Pump gets turned off
-                    error('ELITE11:no_response','Something wrong happened, no response (no bytes) received from pump')
+                    error('ELITE11:no_response',...
+                        'Something wrong happened, no response (no bytes) received from pump')
                 end
             end
             
@@ -506,10 +532,13 @@ classdef elite_11 < handle %sl.obj.display_class
                                     response = response(5:end-2-n_chars_back);
                                     switch response
                                         case ERROR_1
+                                            obj.wtf = response;
                                             error('Syntax error for cmd: "%s"',full_cmd)
                                         case ERROR_2
+                                            obj.wtf = response;
                                             error('Command not applicable at this time')
                                         case ERROR_3
+                                            obj.wtf = response;
                                             error('Control data out of range for this pump')
                                     end
                                     
@@ -544,10 +573,13 @@ classdef elite_11 < handle %sl.obj.display_class
                                 %It is unclear whether or not
                                 switch response
                                     case ERROR_1
+                                        obj.wtf = response;
                                         error('Syntax error')
                                     case ERROR_2
+                                        obj.wtf = response;
                                         error('Command not applicable at this time')
                                     case ERROR_3
+                                        obj.wtf = response;
                                         error('Control data out of range for this pump')
                                     otherwise
                                         %Keep reading ...
@@ -557,6 +589,7 @@ classdef elite_11 < handle %sl.obj.display_class
                                 %Keep going
                         end
                     else
+                        obj.wtf = response;
                        error('Unexpected first character');
                     end
                 else
@@ -564,6 +597,7 @@ classdef elite_11 < handle %sl.obj.display_class
                 end
                 
                 if (~done && toc(t1) > MAX_READ_TIME)
+                    obj.wtf = response;
                     error('Response timed out')
                 end
             end
