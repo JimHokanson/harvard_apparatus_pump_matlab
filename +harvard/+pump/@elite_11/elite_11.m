@@ -106,6 +106,8 @@ classdef elite_11 < handle %sl.obj.display_class
         %after when done.
         sending_cmd = false
         
+        logger harvard.pump.elite_11.pump_logger
+        
         %This is the response we got before an error occurred.
         %This is primarily for debugging
         response_during_error
@@ -294,6 +296,8 @@ classdef elite_11 < handle %sl.obj.display_class
             
             obj.translate_units = in.translate_units;
             
+            obj.logger = harvard.pump.elite_11.pump_logger.getInstance();
+            
             if isempty(input)
                 %TODO: resolve name
             end
@@ -458,6 +462,9 @@ classdef elite_11 < handle %sl.obj.display_class
             flushinput(obj.s)
         end
         function response = runQuery(obj,cmd)
+            
+            I2 = obj.logger.logWaitStart(cmd);
+            
             if obj.sending_cmd
                i = 0;
                while (obj.sending_cmd)
@@ -469,9 +476,12 @@ classdef elite_11 < handle %sl.obj.display_class
                end
             end
             obj.sending_cmd = true;
+            
             try
+                obj.logger.logCmdStart(I2);
                 response = obj.runQuery2(cmd);
                 obj.sending_cmd = false;
+                obj.logger.logCmdStop(I2);
             catch ME
                 obj.sending_cmd = false;
                 rethrow(ME)
