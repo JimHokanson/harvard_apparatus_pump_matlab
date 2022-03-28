@@ -232,11 +232,9 @@ classdef gui < handle
     
     %Pump Interface Commands
     methods
-        
         function giveOptions(obj)
             obj.options.launchEditorGUI;
         end
-        
         function setFillRate(obj)
             fill_rate = str2double(obj.h.fill_rate.Value);
             units = obj.h.units.Value;
@@ -350,13 +348,52 @@ classdef gui < handle
         end
         function update(obj)
             try
-            volume = obj.pump.volume_delivered_ml;
-            display_strings2 = sprintf('Infused Volume: %g (%s)',volume{1},volume{2});
-            obj.n_updates = obj.n_updates + 1;
-            if mod(obj.n_updates,2)
-                last_char = '';
-            else
-                last_char = '*';
+                obj.display_strings = cell(1,2);
+
+                current_rate = obj.pump.current_rate;
+                volume = obj.pump.volume_delivered_ml;
+                %current_rate: {numeric_value,units_string}
+                
+                %This is correct, local GUI may not be
+                is_infusing = obj.pump.is_infusing;
+                if is_infusing && ~obj.is_pumping
+                    obj.is_pumping = true;
+                    obj.h.stop_pump.Visible = 'On';
+                    obj.h.start_pump.Visible = 'Off';
+                elseif ~is_infusing && obj.is_pumping
+                    obj.is_pumping = false;
+                    obj.h.stop_pump.Visible = 'Off';
+                    obj.h.start_pump.Visible = 'On';
+                end
+                %status = obj.pump.pump_status_from_last_query;
+                
+                %TODO: If status is pumping, make sure the stop button is
+                %showing
+                
+                
+                target_units = obj.h.units.Value;
+               new_value = translate_units(current_rate{1},current_rate{2},target_units);
+                
+                %TODO: Remove once function is working
+%                 new_value = current_rate{1};
+%                 target_units = current_rate{2};
+                
+                obj.display_strings{1} = sprintf('Current Rate: %g (%s)', new_value,target_units);
+                obj.display_strings{2} = sprintf('Infused Volume: %g (%s)',volume{1},volume{2});
+                
+                % %                 %['Current Rate:',num2str(obj.pump.current_rate{1}),obj.pump.current_rate{2}]
+                % %                 obj.display_strings{1} = strcat('Current Rate:',num2str(obj.pump.current_rate{1}),obj.pump.current_rate{2});
+                % %                 obj.display_strings{2} = strcat('Infused Volume:',obj.pump.volume_delivered_ml);
+                obj.n_updates = obj.n_updates + 1;
+                if mod(obj.n_updates,2)
+                    last_char = '';
+                else
+                    last_char = '*';
+                end 
+                obj.h.display.Value = sprintf('%s\n%s %s',obj.display_strings{1},obj.display_strings{2},last_char);
+            catch ME
+                %if error has been displayed once, do nothing
+                %otherwise, display error and then disable displaying
             end
             obj.h.display2.Value = sprintf('%s %s',display_strings2,last_char);
             catch ME

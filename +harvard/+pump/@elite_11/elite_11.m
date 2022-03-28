@@ -95,28 +95,65 @@ classdef elite_11 < handle %sl.obj.display_class
             'StopBits',2,...
             'Terminator',[]... %This is because the response is non-standard
             }
+        
+        translate_units
+        last_infuse_units
+        last_withdraw_units
     end
     
     properties
+        %We set this true when sending a command and false immediately
+        %after when done.
         sending_cmd = false
         wtf
+
+        
+        logger harvard.pump.elite_11.pump_logger
+        
+        %This is the response we got before an error occurred.
+        %This is primarily for debugging
+        response_during_error
         
         address
         pump_firmware_version
         pump_status_from_last_query
         %
         %   - '1: infusing'
-        %   - '2: refilling'
-        %   - '3: stopped'
-        %   - '4: paused'
-        %   - '5: pumping interrupted'
-        %   - '6: dispense trigger wait'
-        %   - '7: unrecognized'
+        %   - '2: withdrawing'
+        %   - '3: idle'
+        %   - '5: stalled'
+        %   - '6: target hit'
         %
         %   Note that grabbing the first char can identify
         %   the type. >= 3 is stopped
     end
     
+    properties (Dependent)
+        is_idle
+        is_infusing
+        is_withdrawing
+        is_stalled
+        has_hit_target
+    end
+    
+    methods
+        function value = get.is_idle(obj)
+           value = true;
+           if isempty(obj.pump_status_from_last_query)
+               %TODO: Make status query
+           else
+               value = obj.pump_status_from_last_query(1) == '3';
+           end
+        end
+        function value = get.is_infusing(obj)
+            value = true;
+           if isempty(obj.pump_status_from_last_query)
+               %TODO: Make status query
+           else
+               value = obj.pump_status_from_last_query(1) == '1';
+           end
+        end
+    end
     properties (Dependent)
         syringe_diameter_mm
         infuse_rate % {value,units}
@@ -189,6 +226,12 @@ classdef elite_11 < handle %sl.obj.display_class
             %
             %See helper function for our example response
             value = h__extractFlowRate(response);
+            
+            %TODO: Handle different units for infuse and withdraw
+            if obj.translate_units
+                %value{2} = translateUnits(value{2},obj.last_infuse_units)
+            end
+            
             %value - {1x2}
             %   {1} - numeric rate
             %   {2} - string units
@@ -250,7 +293,12 @@ classdef elite_11 < handle %sl.obj.display_class
             
             in.address = 1;
             in.baud_rate = 115200;
+            in.translate_units = true;
             in = sl.in.processVarargin(in,varargin);
+            
+            obj.translate_units = in.translate_units;
+            
+            obj.logger = harvard.pump.elite_11.pump_logger.getInstance();
             
             if isempty(input)
                 %TODO: resolve name
@@ -276,8 +324,10 @@ classdef elite_11 < handle %sl.obj.display_class
             %   ID: MATLAB:class:DestructorError
             % MSG: The following error was caught while executing 'harvard.pump.model_44' class destructor:
             % Invalid file identifier. Use fopen to generate a valid file identifier.
-            try
+            try %#ok<TRYNC>
                 fclose(obj.s);
+            end
+            try %#ok<TRYNC>
                 delete(obj.s);
             end
         end
@@ -313,6 +363,8 @@ classdef elite_11 < handle %sl.obj.display_class
             end
             
             obj.runQuery(cmd);
+            
+            obj.last_infuse_units = units;
         end
         function setRefillRate(obj,rate,input_units)
             %x Change the refill (withdraw) rate setting on the pump
@@ -414,6 +466,9 @@ classdef elite_11 < handle %sl.obj.display_class
             flushinput(obj.s)
         end
         function response = runQuery(obj,cmd)
+            
+            I2 = obj.logger.logWaitStart(cmd);
+            
             if obj.sending_cmd
                 i = 0;
                 while (obj.sending_cmd)
@@ -425,9 +480,12 @@ classdef elite_11 < handle %sl.obj.display_class
                 end
             end
             obj.sending_cmd = true;
+            
             try
+                obj.logger.logCmdStart(I2);
                 response = obj.runQuery2(cmd);
                 obj.sending_cmd = false;
+                obj.logger.logCmdStop(I2);
             catch ME
                 obj.sending_cmd = false;
                 rethrow(ME)
@@ -534,13 +592,13 @@ classdef elite_11 < handle %sl.obj.display_class
                                     response = response(5:end-2-n_chars_back);
                                     switch response
                                         case ERROR_1
-                                            obj.wtf = response;
+                                            obj.response_during_error = response;
                                             error('Syntax error for cmd: "%s"',full_cmd)
                                         case ERROR_2
-                                            obj.wtf = response;
+                                            obj.response_during_error = response;
                                             error('Command not applicable at this time')
                                         case ERROR_3
-                                            obj.wtf = response;
+                                            obj.response_during_error = response;
                                             error('Control data out of range for this pump')
                                     end
                                     
@@ -575,13 +633,13 @@ classdef elite_11 < handle %sl.obj.display_class
                                 %It is unclear whether or not
                                 switch response
                                     case ERROR_1
-                                        obj.wtf = response;
+                                        obj.response_during_error = response;
                                         error('Syntax error')
                                     case ERROR_2
-                                        obj.wtf = response;
+                                        obj.response_during_error = response;
                                         error('Command not applicable at this time')
                                     case ERROR_3
-                                        obj.wtf = response;
+                                        obj.response_during_error = response;
                                         error('Control data out of range for this pump')
                                     otherwise
                                         %Keep reading ...
@@ -591,15 +649,16 @@ classdef elite_11 < handle %sl.obj.display_class
                                 %Keep going
                         end
                     else
-                        obj.wtf = response;
-                        error('Unexpected first character');
+
+                        obj.response_during_error = response;
+                       error('Unexpected first character');
                     end
                 else
                     pause(PAUSE_DURATION);
                 end
                 
                 if (~done && toc(t1) > MAX_READ_TIME)
-                    obj.wtf = response;
+                    obj.response_during_error = response;
                     error('Response timed out')
                 end
             end
