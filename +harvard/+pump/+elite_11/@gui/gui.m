@@ -60,6 +60,8 @@ classdef gui < handle
         display_strings
         n_updates = 0;
         options harvard.pump.elite_11.gui.options
+        new_value
+        target_units
     end
     
     
@@ -68,6 +70,7 @@ classdef gui < handle
         function run(com,varargin)
             %   harvard.pump.elite_11.gui.run()
             obj = harvard.pump.elite_11.gui(com,varargin{:});
+            
         end
     end
     
@@ -98,6 +101,7 @@ classdef gui < handle
             in.baud_rate = 115200;
             in.clear_volume_on_start = false;
             in = harvard.sl.in.processVarargin(in,varargin);
+     
             
             if nargin == 0 || isempty(com)
                 com = h__getDefaultCOM();
@@ -128,18 +132,18 @@ classdef gui < handle
             %TODO: Eventually we might want some rate checking on what
             %is valid - VERY LOW PRIORITY
             obj.h.fill_rate.ValueChangedFcn = @(~,~)obj.saveToDisk();
-%             obj.h.
+            %             obj.h.
             %Start/Stop Pump Button --------------------
             obj.h.stop_pump.Position = obj.h.start_pump.Position;
             obj.h.stop_pump.Visible = 'Off';
-            obj.h.stop_pump.ButtonPushedFcn = @(~,~)obj.stopPump();
-            obj.h.start_pump.ButtonPushedFcn = @(~,~)obj.startPump();
+            obj.h.stop_pump.ButtonPushedFcn = @(~,~)obj.stopbutton();
+            obj.h.start_pump.ButtonPushedFcn = @(~,~)obj.startbutton();
             
             %Start/Stop Flushing Button --------------------
             obj.h.stop_flush.Position = obj.h.start_flush.Position;
             obj.h.stop_flush.Visible = 'Off';
-            obj.h.stop_flush.ButtonPushedFcn = @(~,~)obj.stopflush();
-            obj.h.start_flush.ButtonPushedFcn = @(~,~)obj.startflush();
+%             obj.h.stop_flush.ButtonPushedFcn = @(~,~)obj.stopflush();
+            obj.h.start_flush.ButtonPushedFcn = @(~,~)obj.flush();
             
             %Clear Infused Volume Button --------------------
             obj.h.clear_volume.ButtonPushedFcn=@(~,~)obj.clearVolume();
@@ -148,12 +152,7 @@ classdef gui < handle
             %Options Button
             obj.h.options.ButtonPushedFcn=@(~,~)obj.giveOptions();
             
-            %Timer --------------------
-            obj.timer =timer();
-            obj.timer.ExecutionMode='fixedRate';
-            obj.timer.Period=0.5;
-            obj.timer.TimerFcn=@(~,~)obj.updateDisplay();
-            start(obj.timer);
+
             
             try
                 obj.pump = harvard.pump.elite_11(com,...
@@ -168,6 +167,17 @@ classdef gui < handle
                 end
             end
             
+            %Timer --------------------
+            obj.timer =timer();
+            obj.timer.ExecutionMode='fixedRate';
+            obj.timer.Period=0.5;
+            obj.timer.TimerFcn=@(~,~)obj.update();
+            start(obj.timer);            
+            
+            
+            
+            
+            
             obj.address = in.address; %for file naming
             
             
@@ -175,8 +185,6 @@ classdef gui < handle
             
             obj.loadFromDisk();
             %loadFromDisk(obj) %works, but don't do this
-            
-            
         end
         function delete(obj)
             obj.pump = [];
@@ -184,6 +192,7 @@ classdef gui < handle
                 stop(obj.timer);
                 delete(obj.timer);
             end
+            
         end
         function saveToDisk(obj)
             file_path = obj.getSavePath();
@@ -201,12 +210,14 @@ classdef gui < handle
                 obj.h.fill_rate.Value = s.fill_rate;
                 obj.h.units.Value = s.fill_units;
                 if isfield(s,'options')
-                   obj.options.loadFromStruct(s.options) 
+                    obj.options.loadFromStruct(s.options)
                 end
             else
                 obj.h.fill_rate.Value = '5';
             end
+            
         end
+        
         function file_path = getSavePath(obj)
             package_root = harvard.sl.stack.getPackageRoot();
             save_root = harvard.sl.dir.createFolderIfNoExist(package_root,'temp_data','elite11');
@@ -223,7 +234,7 @@ classdef gui < handle
     methods
         
         function giveOptions(obj)
-        obj.options.launchEditorGUI;
+            obj.options.launchEditorGUI;
         end
         
         function setFillRate(obj)
@@ -231,11 +242,21 @@ classdef gui < handle
             units = obj.h.units.Value;
             obj.pump.setInfuseRate(fill_rate,units)
         end
-        
+        function startbutton(obj)
+           startPump(obj)
+           display1(obj) 
+        end
+          function stoptimer(obj)
+            stop(obj.timer);
+        end
+        function flush(obj)
+            startflush(obj)
+            display1(obj) 
+        end
         function startPump(obj)
             if obj.options.clear_volume_on_start
-               %TODO: Clear volume on start 
-               obj.clearVolume();
+                %TODO: Clear volume on start
+                obj.clearVolume();
             end
             obj.is_pumping = true;
             obj.setFillRate();
@@ -246,12 +267,14 @@ classdef gui < handle
             obj.pump.start();
             notify(obj,'post_start_pump');
         end
-        
+        function stopbutton(obj)
+            stopPump(obj) 
+        end
         function stopPump(obj)
             obj.is_pumping = false;
             obj.h.stop_pump.Visible = 'Off';
             obj.h.start_pump.Visible = 'On';
-            
+            obj.h.start_flush.Visible = 'On';
             notify(obj,'pre_stop_pump');
             obj.pump.stop();
             notify(obj,'post_stop_pump');
@@ -266,12 +289,15 @@ classdef gui < handle
         function startflush(obj)
             obj.is_flushing = true;
             obj.setFlushRate();
-            obj.h.stop_flush.Visible = 'On';
+            obj.h.stop_flush.Visible = 'Off';
             obj.h.start_flush.Visible = 'Off';
+            obj.h.stop_pump.Visible = 'On';
+            obj.h.start_pump.Visible = 'Off';
             %             disp('starting pump')
             notify(obj,'pre_start_flush');
             obj.pump.start();
             notify(obj,'post_start_flush');
+%             obj.h.display1();
         end
         
         function stopflush(obj)
@@ -283,38 +309,68 @@ classdef gui < handle
             notify(obj,'post_stop_flush');
         end
         
-        function updateDisplay(obj)
-            try
-                obj.display_strings = cell(1,2);
-                
-                current_rate = obj.pump.current_rate;
-                volume = obj.pump.volume_delivered_ml;
-                %current_rate: {numeric_value,units_string}
-                
-                target_units = obj.h.units.Value;
-               new_value = translate_units(current_rate{1},current_rate{2},target_units);
-                
-                %TODO: Remove once function is working
-%                 new_value = current_rate{1};
-%                 target_units = current_rate{2};
-                
-                obj.display_strings{1} = sprintf('Current Rate: %g (%s)', new_value,target_units);
-                obj.display_strings{2} = sprintf('Infused Volume: %g (%s)',volume{1},volume{2});
-                
-                % %                 %['Current Rate:',num2str(obj.pump.current_rate{1}),obj.pump.current_rate{2}]
-                % %                 obj.display_strings{1} = strcat('Current Rate:',num2str(obj.pump.current_rate{1}),obj.pump.current_rate{2});
-                % %                 obj.display_strings{2} = strcat('Infused Volume:',obj.pump.volume_delivered_ml);
-                obj.n_updates = obj.n_updates + 1;
-                if mod(obj.n_updates,2)
-                    last_char = '';
-                else
-                    last_char = '*';
-                end 
-                obj.h.display.Value = sprintf('%s\n%s %s',obj.display_strings{1},obj.display_strings{2},last_char);
-
-            end
+        %         function updateDisplay(obj)
+        %             try
+        %                 obj.display_strings = cell(1,2);
+        %
+        %                 current_rate = obj.pump.current_rate;
+        %                 volume = obj.pump.volume_delivered_ml;
+        %                 %current_rate: {numeric_value,units_string}
+        %
+        %                 obj.target_units = obj.h.units.Value;
+        %                obj.new_value = translate_units(current_rate{1},current_rate{2},obj.target_units);
+        %
+        % %                 TODO: Remove once function is working
+        % %                 new_value = current_rate{1};
+        % %                 target_units = current_rate{2};
+        % %
+        %                 obj.display_strings{1} = sprintf('Current Rate: %g (%s)', obj.new_value,obj.target_units);
+        %                 obj.display_strings{2} = sprintf('Infused Volume: %g (%s)',volume{1},volume{2});
+        %
+        %                 %                 %['Current Rate:',num2str(obj.pump.current_rate{1}),obj.pump.current_rate{2}]
+        %                 %                 obj.display_strings{1} = strcat('Current Rate:',num2str(obj.pump.current_rate{1}),obj.pump.current_rate{2});
+        %                 %                 obj.display_strings{2} = strcat('Infused Volume:',obj.pump.volume_delivered_ml);
+        %                 obj.n_updates = obj.n_updates + 1;
+        %                 if mod(obj.n_updates,2)
+        %                     last_char = '';
+        %                 else
+        %                     last_char = '*';
+        %                 end
+        %
+        %                 obj.h.display2.Value = sprintf('%s\n%s %s',obj.display_strings{1},obj.display_strings{2},last_char);
+        %
+        %             end
+        %         end
+        function display1(obj)
+            current_rate = obj.pump.current_rate;
+            obj.target_units = obj.h.units.Value;
+            obj.new_value = translate_units(current_rate{1},current_rate{2},obj.target_units);
+            display_strings1 = sprintf('Current Rate: %g (%s)', obj.new_value,obj.target_units);
+            obj.h.display1.Value = sprintf('%s\n%s',display_strings1);
         end
-        
+        function update(obj)
+            try
+            volume = obj.pump.volume_delivered_ml;
+            display_strings2 = sprintf('Infused Volume: %g (%s)',volume{1},volume{2});
+            obj.n_updates = obj.n_updates + 1;
+            if mod(obj.n_updates,2)
+                last_char = '';
+            else
+                last_char = '*';
+            end
+            obj.h.display2.Value = sprintf('%s %s',display_strings2,last_char);
+            catch ME
+                assignin("base",'Elite_11_gui_me', ME)
+            end 
+        end
+        %
+        %  function display(obj)
+        %   current_rate = obj.pump.current_rate;
+        %    obj.target_units = obj.h.units.Value;
+        %                obj.new_value = translate_units(current_rate{1},current_rate{2},obj.target_units);
+        %                 obj.display_strings{1} = sprintf('Current Rate: %g (%s)', obj.new_value,obj.target_units);
+        %                 obj.h.display.Value = sprintf('%s\n%s %s',obj.display_strings{1},obj.display_strings{2},last_char);
+        %     end
         function clearVolume(obj)
             obj.pump.clearDeliveredVolume();
         end
@@ -323,35 +379,37 @@ end
 
 function out = translate_units(value,in_units,target_units)
 
-    %
-    %   value = 50
-    %   in_units = ul/mn
-    %   target_units = ml/hr
-    %   out = 3
-    %
-    %   50 ul   60 mn  1 ml
-    %      mn   1 hr   1000 ul
-    %
-    %   'ul/mn#ml/hr'
-    
-    merged_units = [in_units '#' target_units];
-    switch merged_units
-        case 'ul/min#ml/hr'
-            out = value*60/1000;
-        case 'ml/min#ml/min'
-            out = value;  
-        case 'ul/min#ul/min'
-             out = value;
-        case 'ml/min#ml/hr'
-            out = value*60;
-        otherwise
-            error('Unhandled case')
-    end
+%
+%   value = 50
+%   in_units = ul/mn
+%   target_units = ml/hr
+%   out = 3
+%
+%   50 ul   60 mn  1 ml
+%      mn   1 hr   1000 ul
+%
+%   'ul/mn#ml/hr'
+
+merged_units = [in_units '#' target_units];
+switch merged_units
+    case 'ul/min#ml/hr'
+        out = value*60/1000;
+    case 'ml/min#ml/min'
+        out = value;
+    case 'ul/min#ul/min'
+        out = value;
+    case 'ml/min#ml/hr'
+        out = value*60;
+    otherwise
+        error('Unhandled case')
+end
 end
 
 function h__closeFigure(obj)
 delete(obj.h.UIFigure);
+
 delete(obj)
+
 end
 
 function com_port_use = h__getDefaultCOM()

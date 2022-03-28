@@ -99,7 +99,7 @@ classdef elite_11 < handle %sl.obj.display_class
     
     properties
         sending_cmd = false
-        wtf 
+        wtf
         
         address
         pump_firmware_version
@@ -177,9 +177,9 @@ classdef elite_11 < handle %sl.obj.display_class
             value{1} = str2double(value{1});
             
             %example response: '9.61893 ml'
-%             temp = response(1:end-3);
+            %             temp = response(1:end-3);
             %temp = regexp(response,'\d+\.?\d+','match','once');
-%             value = str2double(temp);
+            %             value = str2double(temp);
         end
         function value = get.current_rate(obj)
             response = obj.runQuery('crate');
@@ -261,6 +261,8 @@ classdef elite_11 < handle %sl.obj.display_class
             obj.address = in.address;
             
             h__initSerial(obj,input)
+            
+            obj.runQuery('nvram none');
             
             obj.pump_firmware_version = strtrim(obj.runQuery('ver'));
             
@@ -413,14 +415,14 @@ classdef elite_11 < handle %sl.obj.display_class
         end
         function response = runQuery(obj,cmd)
             if obj.sending_cmd
-               i = 0;
-               while (obj.sending_cmd)
-                   pause(0.1);
-                   i = i + 1;
-                   if i > 40
-                       error('Took too long waiting for turn')
-                   end
-               end
+                i = 0;
+                while (obj.sending_cmd)
+                    pause(0.1);
+                    i = i + 1;
+                    if i > 40
+                        error('Took too long waiting for turn')
+                    end
+                end
             end
             obj.sending_cmd = true;
             try
@@ -565,7 +567,7 @@ classdef elite_11 < handle %sl.obj.display_class
                                             
                                     end
                                     obj.pump_status_from_last_query = ps;
-                         
+                                    
                                     done = true;
                                 end
                             case CR
@@ -590,7 +592,7 @@ classdef elite_11 < handle %sl.obj.display_class
                         end
                     else
                         obj.wtf = response;
-                       error('Unexpected first character');
+                        error('Unexpected first character');
                     end
                 else
                     pause(PAUSE_DURATION);
