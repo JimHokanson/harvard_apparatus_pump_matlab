@@ -156,6 +156,7 @@ classdef elite_11 < handle %sl.obj.display_class
     end
     properties (Dependent)
         syringe_diameter_mm
+        syringe_volume_ml
         infuse_rate % {value,units}
         refill_rate %
         
@@ -193,10 +194,17 @@ classdef elite_11 < handle %sl.obj.display_class
         %syringe_volume %- autofill
     end
     
+    properties (Hidden)
+       callback_obj 
+    end
     
     methods
         function value = get.syringe_diameter_mm(obj)
             response = obj.runQuery('diameter');
+            value = str2double(response(1:end-3));
+        end
+        function value = get.syringe_volume_ml(obj)
+            response = obj.runQuery('svolume');
             value = str2double(response(1:end-3));
         end
         %         function value = get.infuse_rate(obj)
@@ -291,6 +299,11 @@ classdef elite_11 < handle %sl.obj.display_class
             %   ------------
             %   1) Support numeric input for COM port_name
             
+            
+            obj.callback_obj = handle(com.mathworks.jmi.Callback,'callbackProperties');
+            set(obj.callback_obj,'delayedCallback',@(~,~)obj.renderDataCallback());
+            
+            
             in.address = 1;
             in.baud_rate = 115200;
             in.translate_units = true;
@@ -309,8 +322,8 @@ classdef elite_11 < handle %sl.obj.display_class
             obj.address = in.address;
             
             h__initSerial(obj,input)
-            
-            obj.runQuery('nvram none');
+            obj.runQuery('nvram on');
+%              obj.runQuery('nvram none');
             
             obj.pump_firmware_version = strtrim(obj.runQuery('ver'));
             
@@ -327,6 +340,7 @@ classdef elite_11 < handle %sl.obj.display_class
             try %#ok<TRYNC>
                 fclose(obj.s);
             end
+%             disp('closing pump')
             try %#ok<TRYNC>
                 delete(obj.s);
             end
@@ -466,15 +480,42 @@ classdef elite_11 < handle %sl.obj.display_class
             flushinput(obj.s)
         end
         function response = runQuery(obj,cmd)
+            %
+            %
+            %   This method was added to wrap the main query method. It is
+            %   in place so that any asynchronous call to the query method
+            %   is blocked. We are trying to avoid:
+            %
+            %   ----> time axis
+            %   req - request
+            %   resp - response
+            %   caller1:  req1          resp2 or (resp1 and resp2)
+            %   caller2:        req2            resp1
+            %
+            %   Above we are trying to indicate that 2 callers to the
+            %   pump at the same time is problematic.
+            %
+            
+            
+            %   If cmd in progress, delay manual by X
+            %   timer :   req        resp
+            %   manual :      req
+            %
+            %   If cmd in progress, don't do timer
+            %   timer :       req
+            %   manual : req 
+            %   
             
             I2 = obj.logger.logWaitStart(cmd);
             
             if obj.sending_cmd
                 i = 0;
                 while (obj.sending_cmd)
-                    pause(0.1);
+%                     pause(0.1);
+                  java.lang.Thread.sleep(100);
                     i = i + 1;
                     if i > 40
+                        obj.logger.logWaitFailed(I2);
                         error('Took too long waiting for turn')
                     end
                 end
@@ -483,7 +524,7 @@ classdef elite_11 < handle %sl.obj.display_class
             
             try
                 obj.logger.logCmdStart(I2);
-                response = obj.runQuery2(cmd);
+                response = obj.runQuery2(cmd,I2);
                 obj.sending_cmd = false;
                 obj.logger.logCmdStop(I2);
             catch ME
@@ -491,7 +532,7 @@ classdef elite_11 < handle %sl.obj.display_class
                 rethrow(ME)
             end
         end
-        function response = runQuery2(obj,cmd)
+        function response = runQuery2(obj,cmd,I2)
             %
             
             
@@ -502,6 +543,7 @@ classdef elite_11 < handle %sl.obj.display_class
             s2 = obj.s;
             %full_cmd = sprintf('%d %s \r',obj.address,cmd);
             full_cmd = sprintf('%d%s\r',obj.address,cmd);
+            h_tic = tic();
             fprintf(s2,full_cmd);
             
             %Model 44
@@ -548,7 +590,8 @@ classdef elite_11 < handle %sl.obj.display_class
             %----------------------------------
             i = 0;
             while s2.BytesAvailable == 0
-                pause(PAUSE_DURATION);
+%                 pause(PAUSE_DURATION);
+           java.lang.Thread.sleep(PAUSE_DURATION)
                 i = i + 1;
                 if PAUSE_DURATION*i > MAX_INITIAL_WAIT_TIME
                     %This can occur if:
@@ -577,8 +620,20 @@ classdef elite_11 < handle %sl.obj.display_class
                     if response(1) == LF
                         switch response(end)
                             case {':' '>' '<'  '*' 'T*'}
+                                
+                                %We are at the end of a command when we see
+                                %... (TODO:)
+                                
                                 if length(response) >= n_chars_back + 1 && ...
                                         strcmp(response(end-n_chars_back:end-1),END_OF_MSG_START)
+                                    
+                                    %We have reached the end of the
+                                    %command. Process for info.
+                                    
+                                    
+                                    full_response = response;
+                                    is_failure = false;
+                                    obj.logger.logCmdResponse(full_response,I2,is_failure);
                                     
                                     %  :  pump is idle
                                     %  >  pump is infusing
@@ -629,6 +684,8 @@ classdef elite_11 < handle %sl.obj.display_class
                                     done = true;
                                 end
                             case CR
+                                is_failure = true;
+                                obj.logger.logCmdResponse(response,I2,is_failure);
                                 %I don't think this ever runs ...
                                 %It is unclear whether or not
                                 switch response
@@ -649,17 +706,28 @@ classdef elite_11 < handle %sl.obj.display_class
                                 %Keep going
                         end
                     else
-
+                        is_failure = true;
+                        obj.logger.logCmdResponse(response,I2,is_failure);
                         obj.response_during_error = response;
-                       error('Unexpected first character');
+                        error('Unexpected first character');
                     end
                 else
-                    pause(PAUSE_DURATION);
+%                     pause(PAUSE_DURATION);
+                    java.lang.Thread.sleep(PAUSE_DURATION);
                 end
                 
                 if (~done && toc(t1) > MAX_READ_TIME)
                     obj.response_during_error = response;
                     error('Response timed out')
+                end
+                
+                elapsed_time = toc(h_tic);
+                %HA told us not to run commands faster than every 50 ms
+                MIN_ELAPSED_TIME = 0.05;
+                if elapsed_time < MIN_ELAPSED_TIME
+                    remaining_wait_time = MIN_ELAPSED_TIME - elapsed_time;
+%                     pause(remaining_wait_time)
+                        java.lang.Thread.sleep(remaining_wait_time)
                 end
             end
         end
