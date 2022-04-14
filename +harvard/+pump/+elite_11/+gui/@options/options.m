@@ -13,7 +13,7 @@ classdef options < handle
         parent harvard.pump.elite_11.gui
         clear_volume_on_start = true
         %         resizable = false; %LOW PRIORITY
-        volume_unit = 'nl'
+        volume_unit = 'match with Fill Rate'
     end
     
     methods

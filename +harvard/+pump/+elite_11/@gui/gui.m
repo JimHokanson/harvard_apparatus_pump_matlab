@@ -65,6 +65,7 @@ classdef gui < handle
         new_value
         target_units
         unpaired_rate harvard.pump.elite_11.gui.unpaired_rate
+        volume
     end
     
     
@@ -282,6 +283,11 @@ classdef gui < handle
             obj.pump.setInfuseRate(fill_rate,units)
         end
         function startbutton(obj)
+              if obj.options.clear_volume_on_start
+                %TODO: Clear volume on start
+                obj.clearVolume();
+                obj.volume{1} = 0;
+            end
             startPump(obj)
                         display1(obj)
             %             display3(obj)
@@ -294,10 +300,7 @@ classdef gui < handle
             display1(obj)
         end
         function startPump(obj)
-            if obj.options.clear_volume_on_start
-                %TODO: Clear volume on start
-                obj.clearVolume();
-            end
+          
             obj.is_pumping = true;
             obj.setFillRate();
             obj.h.stop_pump.Visible = 'On';
@@ -403,50 +406,50 @@ classdef gui < handle
                     return
                 end
                 
-                volume = obj.pump.volume_delivered_ml;
+                obj.volume = obj.pump.volume_delivered_ml;
                 switch obj.options.h.volume_unit.Value
                     case 'nl'
-                        if volume{2} == 'ul'
-                            volume{1} = volume{1}*1000;
-                            volume{2} = 'nl';
+                        if obj.volume{2} == 'ul'
+                            obj.volume{1} = obj.volume{1}*1000;
+                            obj.volume{2} = 'nl';
                         end
                     case  'ul'
-                        if volume{2} == 'nl'
-                            volume{1} = volume{1}/1000;
-                            volume{2} = 'ul';
+                        if obj.volume{2} == 'nl'
+                            obj.volume{1} = obj.volume{1}/1000;
+                            obj.volume{2} = 'ul';
                         end
-                        if volume{2} == 'ml'
-                            volume{1} = volume{1}*1000;
-                            volume{2} = 'ul';
+                        if obj.volume{2} == 'ml'
+                            obj.volume{1} = obj.volume{1}*1000;
+                            obj.volume{2} = 'ul';
                         end
                     case 'ml'
-                        if volume{2} == 'nl'
-                            volume{1} = volume{1}/1000000;
-                            volume{2} = 'ml';
+                        if obj.volume{2} == 'nl'
+                            obj.volume{1} = obj.volume{1}/1000000;
+                            obj.volume{2} = 'ml';
                         end
-                        if volume{2} == 'ul'
-                            volume{1} = volume{1}/1000;
-                            volume{2} = 'ml';
+                        if obj.volume{2} == 'ul'
+                            obj.volume{1} = obj.volume{1}/1000;
+                            obj.volume{2} = 'ml';
                         end
                     case 'match with Fill Rate'
-                        if volume{2} == 'nl' & obj.target_units(1:2) == 'ml'
-                            volume{1} = volume{1}/1000000;
-                            volume{2} = 'ml';
+                        if obj.volume{2} == 'nl' & obj.target_units(1:2) == 'ml'
+                            obj.volume{1} = obj.volume{1}/1000000;
+                            obj.volume{2} = 'ml';
                         end
-                        if volume{2} == 'ul' & obj.target_units(1:2) == 'ml'
-                            volume{1} = volume{1}/1000;
-                            volume{2} = 'ml';
+                        if obj.volume{2} == 'ul' & obj.target_units(1:2) == 'ml'
+                            obj.volume{1} = obj.volume{1}/1000;
+                            obj.volume{2} = 'ml';
                         end
-                        if volume{2} == 'nl' & obj.target_units(1:2) == 'ul'
-                            volume{1} = volume{1}/1000;
-                            volume{2} = 'ul';
+                        if obj.volume{2} == 'nl' & obj.target_units(1:2) == 'ul'
+                            obj.volume{1} = obj.volume{1}/1000;
+                            obj.volume{2} = 'ul';
                         end
-                        if volume{2} == 'ml' & obj.target_units(1:2) == 'ul'
-                            volume{1} = volume{1}*1000;
-                            volume{2} = 'ul';
+                        if obj.volume{2} == 'ml' & obj.target_units(1:2) == 'ul'
+                            obj.volume{1} = obj.volume{1}*1000;
+                            obj.volume{2} = 'ul';
                         end
                 end
-                display_strings2 = sprintf('Infused Volume: %g (%s)',volume{1},volume{2});
+                display_strings2 = sprintf('Infused Volume: %g (%s)',roundn(obj.volume{1},-4),obj.volume{2});
                 obj.n_updates = obj.n_updates + 1;
                 if mod(obj.n_updates,2)
                     last_char = '';
@@ -568,7 +571,7 @@ function out = translate_units(value,in_units,target_units)
 merged_units = [in_units '#' target_units];
 switch merged_units
     case 'ul/min#ml/hr'
-        out = round(value*60/1000);
+        out = value*60/1000;
     case 'ml/min#ml/min'
         out = value;
     case 'ul/min#ul/min'
@@ -576,7 +579,7 @@ switch merged_units
     case 'ml/min#ml/hr'
         out = value*60;
     otherwise
-        error('Unhandled case')
+        error('Unhandled case %s',merged_units)
 end
 end
 

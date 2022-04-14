@@ -219,8 +219,13 @@ classdef elite_11 < handle %sl.obj.display_class
             response = obj.runQuery('ivolume');
             
             value = regexp(response,'[^\d]*(\d+\.?\d*) ([^\s]+)','tokens','once');
-            value{1} = str2double(value{1});
-            
+            try
+                value{1} = str2double(value{1});
+            catch ME
+                assignin('base','volume_delivered_ml_response',response)
+                fprintf(2,'See "volume_delivered_ml_response" in base workspace\n')
+                rethrow(ME)
+            end
             %example response: '9.61893 ml'
             %             temp = response(1:end-3);
             %temp = regexp(response,'\d+\.?\d+','match','once');
@@ -607,6 +612,20 @@ classdef elite_11 < handle %sl.obj.display_class
                         'Something wrong happened, no response (no bytes) received from pump')
                 end
             end
+            
+            %JAH TODO: Why is this OK?
+            %{
+            {'↵01:368.605 ul←↵01>'                    }
+            {'↵01:'                                    }
+            {'369.026 ul←↵01>'                        }
+            {'↵01:369.447 ul←↵01>'  
+                  
+
+            {'↵01:'                                     }
+            {'36.1294 ul←↵01:'                         }
+            {'↵01:36.1294 ul←↵01:↵01:36.1294 ul←↵01:'}
+            
+            %}
             
             %Read the response
             %-----------------------------------
