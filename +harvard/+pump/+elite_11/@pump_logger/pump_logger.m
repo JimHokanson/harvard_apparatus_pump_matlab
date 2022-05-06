@@ -65,6 +65,7 @@ classdef pump_logger < handle
             s.dur_time = obj.cmd_duration(indices)';
             s.wait_failed = obj.wait_failed(indices)';
             s.cmd_failed = obj.cmd_failed(indices)';
+            s.cmd_response = obj.cmd_response(indices)';
             
             t = struct2table(s);
         end

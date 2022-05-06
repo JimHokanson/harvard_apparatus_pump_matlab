@@ -112,7 +112,7 @@ classdef gui < handle
             end
             
             obj.clear_volume_on_start = in.clear_volume_on_start;
-% %             obj.volume_unit = obj.options.h.volume_unit.Value;
+            % %             obj.volume_unit = obj.options.h.volume_unit.Value;
             %Loading the AppDesigner GUI
             obj.h = harvard.pump.elite_11.elite11_gui();
             obj.h.UIFigure.CloseRequestFcn = @(~,~)h__closeFigure(obj);
@@ -126,7 +126,7 @@ classdef gui < handle
             
             %Units -------------
             obj.h.units.Items = {'ml/hr';'ml/min';'ul/min'};
-%             obj.h.units.ItemsData = [1 2 3];  
+            %             obj.h.units.ItemsData = [1 2 3];
             obj.h.flush_rate.Items = {'5ml/min';'10ml/min';'15ml/min';'20ml/min'};
             obj.h.flush_rate.ItemsData=[5 10 15 20];
             %callback? - none needed, set fill rate when pumping
@@ -138,7 +138,7 @@ classdef gui < handle
             %is valid - VERY LOW PRIORITY
             obj.h.fill_rate.ValueChangedFcn = @(~,~)obj.fill_rate_change();
             obj.h.units.ValueChangedFcn = @(~,~)obj.units_change();
-         
+            
             %Start/Stop Pump Button --------------------
             obj.h.stop_pump.Position = obj.h.start_pump.Position;
             obj.h.stop_pump.Visible = 'Off';
@@ -210,7 +210,7 @@ classdef gui < handle
                 display1(obj);
             end
         end
-          function units_change(obj)
+        function units_change(obj)
             saveToDisk(obj);
             if obj.is_pumping || obj.is_flushing
                 setFillRate(obj);
@@ -274,7 +274,7 @@ classdef gui < handle
             obj.options.launchEditorGUI;
         end
         function giveUnpairedunits(obj)
-          
+            
             obj.unpaired_rate.launchunpaired_rateGUI;
         end
         function setFillRate(obj)
@@ -283,13 +283,13 @@ classdef gui < handle
             obj.pump.setInfuseRate(fill_rate,units)
         end
         function startbutton(obj)
-              if obj.options.clear_volume_on_start
+            if obj.options.clear_volume_on_start
                 %TODO: Clear volume on start
                 obj.clearVolume();
                 obj.volume{1} = 0;
             end
             startPump(obj)
-                        display1(obj)
+            display1(obj)
             %             display3(obj)
         end
         function stoptimer(obj)
@@ -300,7 +300,7 @@ classdef gui < handle
             display1(obj)
         end
         function startPump(obj)
-          
+            
             obj.is_pumping = true;
             obj.setFillRate();
             obj.h.stop_pump.Visible = 'On';
@@ -351,44 +351,45 @@ classdef gui < handle
             obj.pump.stop();
             notify(obj,'post_stop_flush');
         end
-        
-        function updateDisplay(obj)
-            try
-                obj.display_strings = cell(1,2);
-                
-                current_rate = obj.pump.current_rate;
-                volume = obj.pump.volume_delivered_ml;
-                %current_rate: {numeric_value,units_string}
-                
-                obj.target_units = obj.h.units.Value;
-                obj.new_value = translate_units(current_rate{1},current_rate{2},obj.target_units);
-                
-                %                 TODO: Remove once function is working
-                %                 new_value = current_rate{1};
-                %                 target_units = current_rate{2};
-                %
-                obj.display_strings{1} = sprintf('Current Rate: %g (%s)', obj.new_value,obj.target_units);
-                obj.display_strings{2} = sprintf('Infused Volume: %g (%s)',volume{1},volume{2});
-                
-                %                 %['Current Rate:',num2str(obj.pump.current_rate{1}),obj.pump.current_rate{2}]
-                %                 obj.display_strings{1} = strcat('Current Rate:',num2str(obj.pump.current_rate{1}),obj.pump.current_rate{2});
-                %                 obj.display_strings{2} = strcat('Infused Volume:',obj.pump.volume_delivered_ml);
-                obj.n_updates = obj.n_updates + 1;
-                if mod(obj.n_updates,2)
-                    last_char = '';
-                else
-                    last_char = '*';
-                end
-                
-                obj.h.display1.Value = sprintf('%s\n%s %s',obj.display_strings{1},obj.display_strings{2},last_char);
-                
-            end
-        end
+        %
+        %         function updateDisplay(obj)
+        %             try
+        %                 obj.display_strings = cell(1,2);
+        %
+        %                 current_rate = obj.pump.current_rate;
+        %                 volume = obj.pump.volume_delivered_ml;
+        %                 %current_rate: {numeric_value,units_string}
+        %
+        %                 obj.target_units = obj.h.units.Value;
+        %                 obj.new_value = translate_units(current_rate{1},current_rate{2},obj.target_units);
+        %
+        %                 %                 TODO: Remove once function is working
+        %                 %                 new_value = current_rate{1};
+        %                 %                 target_units = current_rate{2};
+        %                 %
+        %                 obj.display_strings{1} = sprintf('Current Rate: %g (%s)', obj.new_value,obj.target_units);
+        %                 obj.display_strings{2} = sprintf('Infused Volume: %g (%s)',volume{1},volume{2});
+        %
+        %                 %                 %['Current Rate:',num2str(obj.pump.current_rate{1}),obj.pump.current_rate{2}]
+        %                 %                 obj.display_strings{1} = strcat('Current Rate:',num2str(obj.pump.current_rate{1}),obj.pump.current_rate{2});
+        %                 %                 obj.display_strings{2} = strcat('Infused Volume:',obj.pump.volume_delivered_ml);
+        %                 obj.n_updates = obj.n_updates + 1;
+        %                 if mod(obj.n_updates,2)
+        %                     last_char = '';
+        %                 else
+        %                     last_char = '*';
+        %                 end
+        %
+        %                 obj.h.display1.Value = sprintf('%s\n%s %s',obj.display_strings{1},obj.display_strings{2},last_char);
+        %
+        %             end
+        %         end
         function display1(obj)
             current_rate = obj.pump.current_rate;
             obj.target_units = obj.h.units.Value;
             obj.new_value = translate_units(current_rate{1},current_rate{2},obj.target_units);
             display_strings1 = sprintf('Current Rate: %g (%s)', obj.new_value,obj.target_units);
+%             display_strings1 = sprintf('Current Rate: %g (%s)',current_rate{1},current_rate{2});
             obj.h.display1.Value = sprintf('%s\n%s',display_strings1);
         end
         function display3(obj)
@@ -432,18 +433,24 @@ classdef gui < handle
                             obj.volume{2} = 'ml';
                         end
                     case 'match with Fill Rate'
-                        if obj.volume{2} == 'nl' & obj.target_units(1:2) == 'ml'
-                            obj.volume{1} = obj.volume{1}/1000000;
-                            obj.volume{2} = 'ml';
-                        end
-                        if obj.volume{2} == 'ul' & obj.target_units(1:2) == 'ml'
-                            obj.volume{1} = obj.volume{1}/1000;
-                            obj.volume{2} = 'ml';
-                        end
                         if obj.volume{2} == 'nl' & obj.target_units(1:2) == 'ul'
                             obj.volume{1} = obj.volume{1}/1000;
                             obj.volume{2} = 'ul';
                         end
+                        if obj.volume{2} == 'nl' & obj.target_units(1:2) == 'ml'
+                            obj.volume{1} = obj.volume{1}/1000000;
+                            obj.volume{2} = 'ml';
+                        end
+                        
+                        if obj.volume{2} == 'ul' & obj.target_units(1:2) == 'ml'
+                            obj.volume{1} = obj.volume{1}/1000;
+                            obj.volume{2} = 'ml';
+                        end
+                        if obj.volume{2} == 'ul' & obj.target_units(1:2) == 'nl'
+                            obj.volume{1} = obj.volume{1}*1000;
+                            obj.volume{2} = 'nl';
+                        end
+                        
                         if obj.volume{2} == 'ml' & obj.target_units(1:2) == 'ul'
                             obj.volume{1} = obj.volume{1}*1000;
                             obj.volume{2} = 'ul';

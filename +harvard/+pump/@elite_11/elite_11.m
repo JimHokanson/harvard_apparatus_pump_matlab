@@ -645,7 +645,7 @@ classdef elite_11 < handle %sl.obj.display_class
                                 
                                 if length(response) >= n_chars_back + 1 && ...
                                         strcmp(response(end-n_chars_back:end-1),END_OF_MSG_START)
-                                    
+%                                     strcmp(response(end-n_chars_back:end-1),END_OF_MSG_START)
                                     %We have reached the end of the
                                     %command. Process for info.
                                     
