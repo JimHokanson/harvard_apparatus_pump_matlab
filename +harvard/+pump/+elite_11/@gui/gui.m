@@ -579,6 +579,8 @@ merged_units = [in_units '#' target_units];
 switch merged_units
     case 'ul/min#ml/hr'
         out = value*60/1000;
+    case 'ul/min#ml/min'
+        out = value/1000;    
     case 'ml/min#ml/min'
         out = value;
     case 'ul/min#ul/min'
