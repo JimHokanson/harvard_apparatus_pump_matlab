@@ -218,12 +218,27 @@ classdef elite_11 < handle %sl.obj.display_class
         function value = get.volume_delivered_ml(obj)
             response = obj.runQuery('ivolume');
             
+            %JAH TODO: test this approach
+            %
+            %   call may fail, what do we return in that case?
+            %
+            %   failure?
+%             if isempty(response)
+%                 value = '';
+%             end
+            
             value = regexp(response,'[^\d]*(\d+\.?\d*) ([^\s]+)','tokens','once');
             try
                 value{1} = str2double(value{1});
             catch ME
-                assignin('base','volume_delivered_ml_response',response)
-                fprintf(2,'See "volume_delivered_ml_response" in base workspace\n')
+                %JAH: 7/30/2024
+                %
+                %   let's be less verbose
+                %
+                %   could enable if we add a debugging flag
+                %
+                %assignin('base','volume_delivered_ml_response',response)
+                %fprintf(2,'See "volume_delivered_ml_response" in base workspace\n')
                 rethrow(ME)
             end
             %example response: '9.61893 ml'
@@ -539,6 +554,18 @@ classdef elite_11 < handle %sl.obj.display_class
         end
         function response = runQuery2(obj,cmd,I2)
             %
+            %
+            %   This is the main function that issues a command
+            %   and waits for the response. This proved to be a bit
+            %   challenging for reasons I don't fully remember.
+            %
+            %   Some notes on possible issues we had:
+            %   1. We found it hard to guarantee synchronous operations.
+            %   This was particularly true, or rather, primarily an issue,
+            %   due to the use of timers to update the pumped volume every
+            %   so often (half a second?).
+            %   2. We had some issues with LF or CR not always being
+            %   present or being present more often than expected.
             
             
             
@@ -595,8 +622,13 @@ classdef elite_11 < handle %sl.obj.display_class
             %----------------------------------
             i = 0;
             while s2.BytesAvailable == 0
-%                 pause(PAUSE_DURATION);
-           java.lang.Thread.sleep(PAUSE_DURATION)
+        %                 pause(PAUSE_DURATION);
+                %I can't remember why we went with this instead
+                %of pause :/ 
+                %
+                %We ran into some weird MATLAB corner case but I can't
+                %remember what that was
+                java.lang.Thread.sleep(PAUSE_DURATION)
                 i = i + 1;
                 if PAUSE_DURATION*i > MAX_INITIAL_WAIT_TIME
                     %This can occur if:
@@ -825,5 +857,26 @@ end
 function value = h__extractFlowRate(response)
 %%Example Response:    'Infusing at 660 ul/min'
 value = regexp(response,'[^\d]*(\d+\.?\d*) ([^\s]+)','tokens','once');
+%JAH: 2024-10-03
+%
+%   This has been throwing an error, why?
+%
+%   Note the error is that the regex fails, and thus value is empty
+%   but why is it empty?
+%
+%   Apparently the 'response' is empty. Do we need to query again?
+%
+%   Does this happen when we send a command while at the same time
+%   receiving a command?
+%
+%   perhaps because there is no leading #\
+%   Infusing at .333 ul/min -> would fail because of \d+
+%
+
+if isempty(value)
+    fprintf('---- JIM DEBUG -------\n')
+    disp(response)
+    fprintf('---- JIM DEBUG -------\n')
+end
 value{1} = str2double(value{1});
 end

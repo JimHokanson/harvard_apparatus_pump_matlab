@@ -25,11 +25,11 @@ classdef unpaired_rate  < handle
             obj.h.ButtonB.ButtonPushedFcn = @(~,~)obj.button2();
             obj.h.ButtonC.ButtonPushedFcn = @(~,~)obj.button3();
             obj.h.ButtonD.ButtonPushedFcn = @(~,~)obj.button4();
-            obj.h.Label.Text = 'The current rate on pump  does not match the fill rate you used last time. What are you going to do? '
-            obj.h.LabelA.Text = 'set GUI to current pump rate'
-            obj.h.LabelB.Text = 'set GUI to saved rate, but don not change pump'
-            obj.h.LabelC.Text = 'change pump to saved rate'
-            obj.h.LabelD.Text = 'cancel, close GUI I NEVER RUN!!!!!!!'
+            obj.h.Label.Text = 'The current rate on pump  does not match the fill rate you used last time. What are you going to do? ';
+            obj.h.LabelA.Text = 'set GUI to current pump rate';
+            obj.h.LabelB.Text = 'set GUI to saved rate, but don not change pump';
+            obj.h.LabelC.Text = 'change pump to saved rate';
+            obj.h.LabelD.Text = 'cancel, close GUI I NEVER RUN!!!!!!!';
         end
        
         function button1(obj)

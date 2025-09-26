@@ -128,7 +128,7 @@ classdef gui < handle
             obj.h.units.Items = {'ml/hr';'ml/min';'ul/min'};
             %             obj.h.units.ItemsData = [1 2 3];
             obj.h.flush_rate.Items = {'5ml/min';'10ml/min';'15ml/min';'20ml/min'};
-            obj.h.flush_rate.ItemsData=[5 10 15 20];
+            obj.h.flush_rate.ItemsData = [5 10 15 20];
             %callback? - none needed, set fill rate when pumping
             %- load from disk below
             
@@ -152,13 +152,13 @@ classdef gui < handle
             obj.h.start_flush.ButtonPushedFcn = @(~,~)obj.flush();
             
             %Clear Infused Volume Button --------------------
-            obj.h.clear_volume.ButtonPushedFcn=@(~,~)obj.clearVolume();
+            obj.h.clear_volume.ButtonPushedFcn = @(~,~)obj.clearVolume();
             %             +(~,~)obj.updateDisplay();
             
             %Options Button
-            obj.h.options.ButtonPushedFcn=@(~,~)obj.giveOptions();
+            obj.h.options.ButtonPushedFcn = @(~,~)obj.giveOptions();
             
-            obj.h.upaired_rate.ButtonPushedFcn=@(~,~)obj.giveUnpairedunits();
+            obj.h.upaired_rate.ButtonPushedFcn = @(~,~)obj.giveUnpairedunits();
             
             try
                 obj.pump = harvard.pump.elite_11(com,...
@@ -174,27 +174,31 @@ classdef gui < handle
             end
             
             %Timer --------------------
-            obj.timer =timer();
-            obj.timer.ExecutionMode='fixedRate';
-            obj.timer.Period=0.5;
-            obj.timer.TimerFcn=@(~,~)obj.update();
-            start(obj.timer);
-            
-            
-            
+            obj.timer = timer();
+            obj.timer.ExecutionMode = 'fixedRate';
+            obj.timer.Period = 0.5;
+            obj.timer.TimerFcn = @(~,~)obj.update();
             
             
             obj.address = in.address; %for file naming
             
             
             obj.options = harvard.pump.elite_11.gui.options(obj);
-            obj.options.launchEditorGUI;
-            obj.unpaired_rate = harvard.pump.elite_11.gui.unpaired_rate(obj);
+            %JAH 2024-06-05
+            %
+            %Supressing this, not yet ready for prime time
+            %obj.options.launchEditorGUI;
+            %obj.unpaired_rate = harvard.pump.elite_11.gui.unpaired_rate(obj);
+            
+            
             display1(obj)
             display3(obj)
-            update(obj)
             obj.loadFromDisk();
-            %loadFromDisk(obj) %works, but don't do this
+            
+            
+            %This should be the last thing in the constructor
+            start(obj.timer);
+            
         end
         function delete(obj)
             obj.pump = [];
@@ -239,15 +243,19 @@ classdef gui < handle
                 obj.h.fill_rate.Value = '5';
             end
             
+            
+            %JAH: 2024-06-05 - delaying for now ...
+            %
+            %
             %TODO: If GUI rate and pump rate are different, ask user
             %what we should do:
             %1) set GUI to current pump rate
             %2) set GUI to saved rate, but don't change pump
             %3) change pump to saved rate
             %4) cancel, close GUI
-            if obj.new_value ~= str2double(obj.h.fill_rate.Value)
-                obj.unpaired_rate.launchunpaired_rateGUI;
-            end
+%             if obj.new_value ~= str2double(obj.h.fill_rate.Value)
+%                 obj.unpaired_rate.launchunpaired_rateGUI;
+%             end
             %             TODO: Set pump rate based on what we have stored on disk
             %             pump_rate = obj.h.fill_rate.Value;
             %TODO: Set pump with this rate
@@ -385,7 +393,16 @@ classdef gui < handle
         %             end
         %         end
         function display1(obj)
+            %
+            %
+            %   ???? Updates the pump rate
+            %
+            %   TODO: Rename this function
+            
+            
+            %Note this is a function call
             current_rate = obj.pump.current_rate;
+            
             obj.target_units = obj.h.units.Value;
             obj.new_value = translate_units(current_rate{1},current_rate{2},obj.target_units);
             display_strings1 = sprintf('Current Rate: %g (%s)', obj.new_value,obj.target_units);
@@ -393,6 +410,9 @@ classdef gui < handle
             obj.h.display1.Value = sprintf('%s\n%s',display_strings1);
         end
         function display3(obj)
+            %
+            %   ?????? updates syringe diameter and volume display
+            %   
             syringe_strings = cell(1,2);
             syringe_diameter = obj.pump.syringe_diameter_mm;
             syringe_volume = obj.pump.syringe_volume_ml;
@@ -401,61 +421,88 @@ classdef gui < handle
             obj.h.display3.Value = sprintf('%s\n%s %s',syringe_strings{1},syringe_strings{2});
         end
         function update(obj)
+            %
+            %
+            %   Update runs on a timer
+            %
+            %   
+            
             try
                 
                 if obj.pump.sending_cmd
                     return
                 end
                 
-                obj.volume = obj.pump.volume_delivered_ml;
-                switch obj.options.h.volume_unit.Value
+                %Note, this is a query to the pump (not obvious)
+                %
+                %JAH 2024-06-05: For some reason this periodically
+                %fails. Not sure why. 
+                %
+                %JAH: Because this periodically fails we should
+                %be updating the pump stop 
+                try
+                    obj.volume = obj.pump.volume_delivered_ml;
+                catch ME %#ok<NASGU>
+                    %fprintf(2,'Volume request failed\n')
+                    return
+                end
+                
+                switch obj.options.volume_unit
                     case 'nl'
-                        if obj.volume{2} == 'ul'
+                        if obj.volume{2} == "ul"
                             obj.volume{1} = obj.volume{1}*1000;
                             obj.volume{2} = 'nl';
+                        else
+                            error('Unhandled combination of volume and target units nl')
                         end
                     case  'ul'
-                        if obj.volume{2} == 'nl'
+                        if obj.volume{2} == "nl"
                             obj.volume{1} = obj.volume{1}/1000;
                             obj.volume{2} = 'ul';
-                        end
-                        if obj.volume{2} == 'ml'
+                        elseif obj.volume{2} == "ml"
                             obj.volume{1} = obj.volume{1}*1000;
                             obj.volume{2} = 'ul';
+                        else
+                            error('Unhandled combination of volume and target units ul')
                         end
                     case 'ml'
-                        if obj.volume{2} == 'nl'
+                        if obj.volume{2} == "nl"
                             obj.volume{1} = obj.volume{1}/1000000;
                             obj.volume{2} = 'ml';
-                        end
-                        if obj.volume{2} == 'ul'
+                        elseif obj.volume{2} == "ul"
                             obj.volume{1} = obj.volume{1}/1000;
                             obj.volume{2} = 'ml';
+                        else
+                            error('Unhandled combination of volume and target units ml')
                         end
                     case 'match with Fill Rate'
-                        if obj.volume{2} == 'nl' & obj.target_units(1:2) == 'ul'
+                        if string(obj.volume{2}) == obj.target_units(1:2)
+                            %No need to translate
+                        %Note target units are something like ml/hr so
+                        %obj.target_units(1:2) would be ml
+                        elseif obj.volume{2} == "nl" && obj.target_units(1:2) == "ul"
                             obj.volume{1} = obj.volume{1}/1000;
                             obj.volume{2} = 'ul';
-                        end
-                        if obj.volume{2} == 'nl' & obj.target_units(1:2) == 'ml'
+                        elseif obj.volume{2} == "nl" && obj.target_units(1:2) == "ml"
                             obj.volume{1} = obj.volume{1}/1000000;
                             obj.volume{2} = 'ml';
-                        end
-                        
-                        if obj.volume{2} == 'ul' & obj.target_units(1:2) == 'ml'
+                        elseif obj.volume{2} == "ul" && obj.target_units(1:2) == "ml"
                             obj.volume{1} = obj.volume{1}/1000;
                             obj.volume{2} = 'ml';
-                        end
-                        if obj.volume{2} == 'ul' & obj.target_units(1:2) == 'nl'
+                        elseif obj.volume{2} == "ul" && obj.target_units(1:2) == "nl"
                             obj.volume{1} = obj.volume{1}*1000;
                             obj.volume{2} = 'nl';
-                        end
-                        
-                        if obj.volume{2} == 'ml' & obj.target_units(1:2) == 'ul'
+                        elseif obj.volume{2} == "ml" && obj.target_units(1:2) == "ul"
                             obj.volume{1} = obj.volume{1}*1000;
                             obj.volume{2} = 'ul';
+                        else
+                            %obj.volume
+                            %obj.target_units
+                            
+                            error('Unhandled combination of volume and target units - match rate')
                         end
                 end
+                
                 display_strings2 = sprintf('Infused Volume: %g (%s)',roundn(obj.volume{1},-4),obj.volume{2});
                 obj.n_updates = obj.n_updates + 1;
                 if mod(obj.n_updates,2)
@@ -488,7 +535,12 @@ classdef gui < handle
                     obj.h.start_flush.Visible = 'On';
                 end
             catch ME
-                assignin("base",'Elite_11_gui_me', ME)
+                %JAH TODO: Specify what call failed
+                %
+                %   - allow user to not process
+                %rethrow(ME)
+                fprintf(2,'Check "Elite_11_GUI_ME" in base for pump callback failure\n')
+                assignin("base",'Elite_11_GUI_ME', ME)
             end
         end
         %         function update(obj)
